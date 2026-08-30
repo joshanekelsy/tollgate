@@ -70,7 +70,7 @@ Fields:
 
 - `Name`
 - `Work email`
-- `Which provider do you pay directly?`
+- `Which provider do you pay directly?` — OpenAI is marked available now; Anthropic, Gemini, OpenRouter, hosted open models, and other are clearly marked as next-provider interest.
 - `What happened the last time usage surprised you? (optional)`
 - Hidden `source` from the incoming link when available
 

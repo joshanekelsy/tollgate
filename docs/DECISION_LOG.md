@@ -19,6 +19,7 @@
 | 2026-08-30 | Launch the early-access landing page before building the proxy. | Demand capture and qualification can run in parallel with product development. The page must clearly say the product is being built. |
 | 2026-08-30 | M1 ICP requires direct OpenAI billing, non-streaming Chat Completions, base-URL control, recent cost surprise, and willingness to test pass-through. | A broad “developers using AI” audience cannot validate the current product. |
 | 2026-08-30 | Market sizing uses transparent spend-pool and bottom-up scenarios, not a generic AI market headline. | Tollgate captures cost-control software revenue, not total model or AI application spend. |
+| 2026-08-30 | Landing applications accept multiple direct providers while M1 remains OpenAI-only. | This captures market demand without misrepresenting current compatibility. |
 
 ## Verified source register
 
