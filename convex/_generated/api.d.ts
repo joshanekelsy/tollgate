@@ -9,6 +9,15 @@
  */
 
 import type * as applications from "../applications.js";
+import type * as billing from "../billing.js";
+import type * as billingRuns from "../billingRuns.js";
+import type * as calls from "../calls.js";
+import type * as customers from "../customers.js";
+import type * as health from "../health.js";
+import type * as projects from "../projects.js";
+import type * as rateCards from "../rateCards.js";
+import type * as stripe from "../stripe.js";
+import type * as taskPolicies from "../taskPolicies.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +27,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   applications: typeof applications;
+  billing: typeof billing;
+  billingRuns: typeof billingRuns;
+  calls: typeof calls;
+  customers: typeof customers;
+  health: typeof health;
+  projects: typeof projects;
+  rateCards: typeof rateCards;
+  stripe: typeof stripe;
+  taskPolicies: typeof taskPolicies;
 }>;
 
 /**

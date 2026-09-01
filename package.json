@@ -8,10 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:e2e": "node scripts/verify-product-flow.cjs",
+    "test:watch": "vitest",
+    "provision": "tsx scripts/provision-project.ts"
   },
   "dependencies": {
+    "@amplitude/analytics-browser": "^2.45.8",
+    "@sentry/nextjs": "^10.73.0",
+    "@vercel/analytics": "^2.0.1",
     "convex": "^1.45.0",
+    "lucide-react": "^1.38.0",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -26,7 +32,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "jsdom": "^27.0.1",
+    "playwright": "^1.55.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^3.2.7"
   }

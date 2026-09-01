@@ -1,32 +1,16 @@
 # Decision Log
 
-## Locked decisions
-
 | Date | Decision | Reason |
 |---|---|---|
-| 2026-08-30 | Tollgate replaces the handoff and chargeback directions. | It directly reflects the founder's repeated cost and limit pain. |
-| 2026-08-30 | Revenue is the primary Build Week track. | The target user directly owns a measurable API bill. |
-| 2026-08-30 | M1 is a meter, not a router. | Re-pricing tokens is feasible and honest; equivalent quality is unproven. |
-| 2026-08-30 | Direct OpenAI is the first required provider. | The product must not depend on OpenRouter. |
-| 2026-08-30 | OpenRouter is the second adapter only after the direct flow passes. | It expands coverage without becoming the architecture. |
-| 2026-08-30 | Native Anthropic, Gemini, and hosted Meta support are parked. | Their contracts add risk before the core job is validated. |
-| 2026-08-30 | No prompt or response content is stored. | Trust is a core adoption constraint. |
-| 2026-08-30 | `/` is the public landing page and `/p/{projectId}/dashboard` is the protected working meter. | Build Week needs both acquisition and an isolated product surface. |
-| 2026-08-30 | The landing page has one CTA: `Apply to test Tollgate`. | The immediate goal is a qualified external install, not generic traffic. |
-| 2026-08-30 | The tester's own provider key passes through request memory and is never persisted or logged. | The product must measure the tester's real provider bill, not the builder's account. |
-| 2026-08-30 | Each tester receives a random project route and a separate dashboard access code stored only as a hash. | Calls need server-assigned attribution while dashboard reads need stronger protection than the write route. |
-| 2026-08-30 | M1 public claims say `OpenAI Chat Completions client`, not every coding agent. | Streaming and other provider-native agent endpoints are not supported yet. |
-| 2026-08-30 | Launch the early-access landing page before building the proxy. | Demand capture and qualification can run in parallel with product development. The page must clearly say the product is being built. |
-| 2026-08-30 | M1 ICP requires direct OpenAI billing, non-streaming Chat Completions, base-URL control, recent cost surprise, and willingness to test pass-through. | A broad “developers using AI” audience cannot validate the current product. |
-| 2026-08-30 | Market sizing uses transparent spend-pool and bottom-up scenarios, not a generic AI market headline. | Tollgate captures cost-control software revenue, not total model or AI application spend. |
-| 2026-08-30 | Landing applications accept multiple direct providers while M1 remains OpenAI-only. | This captures market demand without misrepresenting current compatibility. |
-
-## Verified source register
-
-| Checked | Claim | Source |
-|---|---|---|
-| 2026-08-30 | GPT-5.4 supports `v1/chat/completions`; listed standard text price is $2.50 per million input tokens and $15 per million output tokens, with documented exceptions. | https://developers.openai.com/api/docs/models/gpt-5.4 |
-| 2026-08-30 | OpenAI Chat Completions has an official API reference. | https://developers.openai.com/api/reference/resources/chat |
-| 2026-08-30 | OpenRouter exposes an OpenAI-compatible chat-completions interface and model metadata. | https://openrouter.ai/docs/api/reference/overview |
-
-Refresh provider prices before deployment. Do not silently change scope: add a dated row here.
+| 2026-08-29 | Build Tollgate for direct API-bill owners. | The founder personally experienced model-cost and limit pain. |
+| 2026-08-29 | Primary track: Revenue. | One paid bill owner is stronger evidence than broad traffic. |
+| 2026-08-30 | Caller owns and supplies the provider key. | The measurement must reflect the user's bill; Tollgate does not resell inference. |
+| 2026-08-30 | Persist private metadata only. | Cost visibility should not require retaining prompts, responses, credentials or tool payloads. |
+| 2026-08-30 | OpenAI non-streaming Chat Completions only. | One verified provider contract is stronger than untested breadth. |
+| 2026-08-30 | Replace manual applications with one-email self-serve meters. | A stranger must reach first value without founder provisioning. |
+| 2026-08-30 | Add a real two-model comparison and human winner. | Same-token repricing alone produces insight without a quality decision. |
+| 2026-08-30 | Position as a task-level decision layer, not broad observability. | Established gateways and observability suites already win on feature breadth. |
+| 2026-08-30 | Keep routing, budgets and alerts out of M1. | Validate that users make a model decision before automating enforcement. |
+| 2026-08-30 | Landing proof uses one controlled production comparison. | Real output, cost and latency are stronger and more honest than an illustration. |
+| 2026-08-31 | Supersede the OpenAI-only proxy with four fixed provider adapters. | Metering is provider-neutral, but authentication, paths, usage fields, errors and cost sources require explicit OpenAI, Anthropic, Gemini and OpenRouter translations. |
+| 2026-08-31 | Treat the price catalogue as pricing data, not a model allowlist. | A safe provider model ID may pass through even when Tollgate cannot calculate monetary cost; unavailable cost must remain explicit. |

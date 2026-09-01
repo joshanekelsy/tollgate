@@ -8,7 +8,9 @@ There is a real market for AI cost visibility and control. Enterprise foundation
 
 That proves the category, not Tollgate.
 
-Tollgate M1 is a narrow feature in a competitive market. It becomes a venture-scale thesis only if the meter earns a path toward cross-provider attribution, budgets, policy enforcement, and measured routing savings. Build Week should validate the wedge: whether a bill owner will install it and act on the result.
+Tollgate M1 is a narrow product in a competitive market. [Helicone](https://www.ycombinator.com/companies/helicone) and [LiteLLM](https://www.ycombinator.com/companies/litellm) were both funded by Y Combinator in W23, and [Respan](https://www.ycombinator.com/companies/respan) was funded in W24; each covers parts of gateway, observability, evaluation or routing. This validates the category and removes “basic cost dashboard” as a defensible position.
+
+Tollgate's sharper thesis is task-level model decisions: observe what recurring agent work costs, compare real outputs across models, record the approved result, and eventually enforce and measure that decision. The compounding advantage would be customer-specific task, quality and routing history—not the proxy itself. Build Week must validate whether a bill owner completes and acts on that loop.
 
 ## Market definition
 
@@ -209,4 +211,3 @@ Resolve these with primary interviews rather than more desk research:
 ## Market verdict
 
 **Proceed with the Build Week wedge. Do not use TAM as proof of demand.** The market category is real, competitors prove willingness to use gateways and cost analytics, and AI cost management is becoming a formal responsibility. Tollgate still needs to prove that its narrower, privacy-conscious setup earns installation and payment.
-

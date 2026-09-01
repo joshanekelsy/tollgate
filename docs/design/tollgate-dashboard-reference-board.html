@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tollgate dashboard reference board</title>
+  <style>
+    :root {
+      --paper: #f4f5f1;
+      --ink: #111512;
+      --muted: #5f6862;
+      --line: #cdd2ce;
+      --panel: #ffffff;
+      --signal: #0f7a4f;
+      --take: #dff7e8;
+      --reject: #fff0d7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    header, main, footer { width: min(1440px, calc(100% - 48px)); margin: 0 auto; }
+    .board-head { padding: 72px 0 40px; border-bottom: 1px solid var(--ink); }
+    .eyebrow, .source, .label, .map span {
+      font: 700 11px/1.3 ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+    .eyebrow { margin: 0 0 20px; color: var(--signal); }
+    h1 { max-width: 980px; margin: 0; font-size: 72px; line-height: .94; letter-spacing: 0; text-wrap: balance; }
+    .board-head > p:last-child { max-width: 760px; margin: 24px 0 0; color: var(--muted); font-size: 17px; line-height: 1.55; }
+    .reference { padding: 56px 0; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, .6fr); gap: 32px; border-bottom: 1px solid var(--line); }
+    figure { margin: 0; min-width: 0; }
+    figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); background: var(--panel); }
+    figcaption { margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    figcaption a { color: inherit; }
+    .notes { align-self: start; display: grid; gap: 14px; }
+    .source { color: var(--signal); }
+    h2 { margin: 4px 0 10px; font-size: 30px; line-height: 1.05; letter-spacing: 0; }
+    .note { padding: 18px; border: 1px solid var(--line); background: var(--panel); }
+    .note.take { background: var(--take); }
+    .note.reject { background: var(--reject); }
+    .label { display: block; margin-bottom: 9px; }
+    .note p { margin: 0; color: #3f4742; font-size: 14px; line-height: 1.5; }
+    .decision { padding: 72px 0; }
+    .decision h2 { max-width: 760px; font-size: 58px; }
+    .map { margin: 32px 0 44px; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--ink); }
+    .map div { min-height: 138px; padding: 22px; border-right: 1px solid var(--ink); background: var(--panel); }
+    .map div:last-child { border-right: 0; }
+    .map span { color: var(--signal); }
+    .map strong { margin-top: 30px; display: block; font-size: 21px; line-height: 1.15; }
+    .wireframe { display: grid; grid-template-columns: 220px 1fr; min-height: 580px; color: #eef4ef; background: #101512; border: 1px solid #101512; }
+    .side { padding: 24px 18px; border-right: 1px solid #344039; }
+    .brand { margin-bottom: 42px; color: #89f0ba; font-weight: 800; }
+    .meter { padding: 12px; border: 1px solid #435047; font-size: 13px; }
+    .meter small { margin-top: 5px; display: block; color: #95a198; }
+    nav { margin-top: 26px; display: grid; gap: 5px; }
+    nav span { padding: 11px 12px; color: #95a198; font-size: 13px; }
+    nav span:first-child { color: #101512; background: #89f0ba; font-weight: 700; }
+    .workspace { padding: 30px; }
+    .workspace header { width: auto; display: flex; justify-content: space-between; align-items: center; }
+    .workspace h3 { margin: 0; font-size: 27px; }
+    .status { color: #89f0ba; font: 700 11px/1 ui-monospace, monospace; }
+    .metrics { margin-top: 34px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid #344039; border-bottom: 1px solid #344039; }
+    .metrics div { padding: 22px 0; }
+    .metrics span { color: #95a198; font-size: 11px; }
+    .metrics strong { margin-top: 10px; display: block; color: #89f0ba; font-size: 28px; font-variant-numeric: tabular-nums; }
+    .attention { margin-top: 28px; padding: 18px; display: flex; justify-content: space-between; gap: 20px; color: #f6d99a; border: 1px solid #725f34; }
+    .ledger { margin-top: 28px; }
+    .row { min-height: 50px; display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); align-items: center; border-bottom: 1px solid #28322c; font-size: 12px; }
+    .row.head { min-height: 38px; color: #95a198; font: 700 9px/1 ui-monospace, monospace; text-transform: uppercase; }
+    footer { padding: 28px 0 48px; color: var(--muted); border-top: 1px solid var(--line); font-size: 11px; line-height: 1.6; }
+    @media (max-width: 850px) {
+      header, main, footer { width: calc(100% - 28px); max-width: 720px; }
+      .board-head { padding-top: 46px; }
+      h1 { font-size: 44px; }
+      .decision h2 { font-size: 38px; }
+      .reference { grid-template-columns: 1fr; }
+      .map { grid-template-columns: 1fr 1fr; }
+      .map div:nth-child(2) { border-right: 0; }
+      .map div:nth-child(-n+2) { border-bottom: 1px solid var(--ink); }
+      .wireframe { grid-template-columns: 1fr; }
+      .side { border-right: 0; border-bottom: 1px solid #344039; }
+      nav { grid-template-columns: repeat(4, 1fr); }
+      nav span { padding: 10px 4px; text-align: center; }
+      .metrics { grid-template-columns: 1fr; }
+      .metrics div { border-bottom: 1px solid #28322c; }
+      .row { grid-template-columns: 1.4fr 1fr 1fr; }
+      .row span:nth-child(3), .row span:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="board-head">
+    <p class="eyebrow">Tollgate / dashboard reference board / August 2026</p>
+    <h1>Borrow the structure. Keep the product narrow.</h1>
+    <p>Eight real product screens, annotated for Tollgate's first-run setup and customer-billing dashboard. This is a decision board, not a request to copy another product's visual identity.</p>
+  </header>
+  <main>
+    <section class="reference">
+      <figure><img src="reference-board-assets/01-sentry-onboarding.png" alt="Sentry welcome onboarding screen"><figcaption>Source: <a href="https://www.saasui.design/pattern/onboarding/sentry">Sentry onboarding via SaaSUI pattern library</a>.</figcaption></figure>
+      <div class="notes"><span class="source">01 / Guided entry</span><h2>Sentry welcome</h2><div class="note take"><span class="label">Take</span><p>Visible progress, plain action verbs, and an onboarding surface that is separate from the marketing site.</p></div><div class="note reject"><span class="label">Reject</span><p>The survey competes with setup. Team invitations and other branches appear before the first value.</p></div><div class="note"><span class="label">Tollgate decision</span><p>After email, open a dedicated four-step setup route with one primary action and no side questions.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/02-sentry-onboarding.png" alt="Sentry platform selection screen"><figcaption>Source: <a href="https://www.saasui.design/pattern/onboarding/sentry">Sentry onboarding via SaaSUI pattern library</a>.</figcaption></figure>
+      <div class="notes"><span class="source">02 / Setup step</span><h2>Sentry platform choice</h2><div class="note take"><span class="label">Take</span><p>The step number, progress indicator, and one clear sentence explaining why the choice matters.</p></div><div class="note reject"><span class="label">Reject</span><p>A large choice grid creates work. Tollgate already knows the provider and supported request type.</p></div><div class="note"><span class="label">Tollgate decision</span><p>Show JavaScript, Python, and cURL as code tabs only. Default to the shortest working example.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/03-metronome-overview.png" alt="Metronome billing overview dashboard"><figcaption>Source: <a href="https://metronome.com/blog/reinventing-billing-with-design-interview-metronome-ceo">Metronome design interview</a>.</figcaption></figure>
+      <div class="notes"><span class="source">03 / Billing overview</span><h2>Metronome overview</h2><div class="note take"><span class="label">Take</span><p>Stable navigation, important totals first, clear setup actions, and a customer list tied directly to money.</p></div><div class="note reject"><span class="label">Reject</span><p>Enterprise reporting categories and growth charts exceed Tollgate's current promise.</p></div><div class="note"><span class="label">Tollgate decision</span><p>Lead with billed amount, raw model cost, margin, and customer rows. Use charts only after useful history exists.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/04-metronome-customer.png" alt="Metronome customer billing detail"><figcaption>Source: <a href="https://metronome.com/blog/reinventing-billing-with-design-interview-metronome-ceo">Metronome design interview</a>.</figcaption></figure>
+      <div class="notes"><span class="source">04 / Customer context</span><h2>Metronome customer detail</h2><div class="note take"><span class="label">Take</span><p>The customer name anchors the whole screen. Summary numbers, activity, and details share one clear context.</p></div><div class="note reject"><span class="label">Reject</span><p>Contracts, commitments, invoice status, and payment operations are outside Tollgate's scope.</p></div><div class="note"><span class="label">Tollgate decision</span><p>A customer page should show current-month usage, calculated charge, margin, and the safe call records underneath.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/05-stripe-meter.png" alt="Stripe usage meter detail"><figcaption>Source: <a href="https://docs.stripe.com/billing/subscriptions/usage-based/how-it-works">Stripe usage-based billing documentation</a>; screenshot reproduced by Alguna.</figcaption></figure>
+      <div class="notes"><span class="source">05 / Meter evidence</span><h2>Stripe meter detail</h2><div class="note take"><span class="label">Take</span><p>The meter name and active state are unmistakable. Recent events prove data is arriving, while configuration stays secondary.</p></div><div class="note reject"><span class="label">Reject</span><p>The global payments navigation and multidimensional meter controls would make Tollgate feel heavier than it is.</p></div><div class="note"><span class="label">Tollgate decision</span><p>Keep meter identity visible and use a live first-call feed during setup. Put raw configuration under Setup.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/06-vercel-dashboard.png" alt="Vercel dashboard navigation"><figcaption>Source: <a href="https://vercel.com/changelog/dashboard-navigation-redesign-rollout">Vercel dashboard navigation rollout</a>.</figcaption></figure>
+      <div class="notes"><span class="source">06 / Product shell</span><h2>Vercel project context</h2><div class="note take"><span class="label">Take</span><p>Workspace and project identity stay visible. Navigation is persistent, status is near the title, and routes feel like one product.</p></div><div class="note reject"><span class="label">Reject</span><p>Nested navigation and many operational sections are unnecessary for four Tollgate surfaces.</p></div><div class="note"><span class="label">Tollgate decision</span><p>Use one meter switcher and four destinations: Overview, Customer usage, Price rule, and Setup.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/07-fey-dashboard.png" alt="Fey dark portfolio and research dashboard"><figcaption>User reference: <a href="https://mobbin.com/apps/fey-web-043aa73f-17b4-4a91-a33c-14b5c09bea47/00a9e00e-0d44-4873-8059-7558fc7bc406/flows#1328af10-c914-4e4b-bc85-46a057d3a81a">exact Fey flow on Mobbin</a>. The selected frame requires a signed-in Mobbin session, so this board uses a <a href="https://styles.refero.design/style/733e6475-892a-4138-8835-bf40344df317">public Fey screen from Refero</a> as a representative visual.</figcaption></figure>
+      <div class="notes"><span class="source">07 / Dark data craft</span><h2>Fey portfolio</h2><div class="note take"><span class="label">Take</span><p>Numbers carry the hierarchy. Compact panels, precise type, and restrained color make a dense screen feel controlled.</p></div><div class="note reject"><span class="label">Reject</span><p>Trading-terminal density would hide Tollgate's core path. Some low-contrast labels also ask too much of the reader.</p></div><div class="note"><span class="label">Tollgate decision</span><p>Keep the dark identity and crisp number treatment. Reserve green for healthy states and amber for records that need attention.</p></div></div>
+    </section>
+    <section class="reference">
+      <figure><img src="reference-board-assets/08-glide-workspace.png" alt="Glide team apps workspace"><figcaption>User reference: <a href="https://mobbin.com/apps/glide-web-52d87952-6544-463e-9405-80a775dbd229/d830402a-9f57-45bb-9202-ce4f079eb3b3/screens">exact Glide screens on Mobbin</a>. The selected screens require a signed-in Mobbin session, so this board uses a <a href="https://community.glideapps.com/t/i-cant-upgrade-my-plan/69237">public Glide workspace screen</a> to inspect the same shell pattern.</figcaption></figure>
+      <div class="notes"><span class="source">08 / Workspace clarity</span><h2>Glide workspace</h2><div class="note take"><span class="label">Take</span><p>The active team remains visible, the left navigation is stable, and creation is a clear action. Learning content stays secondary to the work.</p></div><div class="note reject"><span class="label">Reject</span><p>Template and education cards compete with the product. Tollgate should not make returning users pass through beginner content.</p></div><div class="note"><span class="label">Tollgate decision</span><p>Keep the active meter and its status visible in the shell. Setup remains a route, but onboarding guidance disappears from Overview once data is flowing.</p></div></div>
+    </section>
+    <section class="decision">
+      <p class="eyebrow">Synthesis / proposed Tollgate direction</p>
+      <h2>A quiet billing console with a visible path from usage to customer charge.</h2>
+      <div class="map"><div><span>Sentry + Mobbin</span><strong>Guided first-run flow</strong></div><div><span>Metronome + Stripe</span><strong>Billing hierarchy and proof</strong></div><div><span>Vercel + Glide</span><strong>Stable product context</strong></div><div><span>Fey</span><strong>Dark data craft</strong></div></div>
+      <div class="wireframe" aria-label="Proposed Tollgate dashboard wireframe">
+        <aside class="side"><div class="brand">TOLLGATE</div><div class="meter">Acme meter<small>Live / OpenAI</small></div><nav><span>Overview</span><span>Customer usage</span><span>Price rule</span><span>Setup</span></nav></aside>
+        <section class="workspace"><header><h3>August billing</h3><span class="status">METER LIVE</span></header><div class="metrics"><div><span>Total billed</span><strong>$86.71</strong></div><div><span>Raw model cost</span><strong>$57.65</strong></div><div><span>Calculated margin</span><strong>$29.06</strong></div></div><div class="attention"><span>14 calls are missing a customer ID</span><strong>Review</strong></div><div class="ledger"><div class="row head"><span>Customer</span><span>Calls</span><span>Tokens</span><span>Billed</span><span>Margin</span></div><div class="row"><span>customer-acme</span><span>184</span><span>482,000</span><span>$53.76</span><span>$15.36</span></div><div class="row"><span>northstar</span><span>96</span><span>219,500</span><span>$24.08</span><span>$6.88</span></div><div class="row"><span>unattributed</span><span>14</span><span>28,700</span><span>$2.87</span><span>$0.82</span></div></div></section>
+      </div>
+    </section>
+  </main>
+  <footer>Reference images remain the property of their respective owners and are included for internal product-design review. Mobbin remains the pattern-research tool; the public screenshots above make this board shareable without requiring a Mobbin login.</footer>
+</body>
+</html>

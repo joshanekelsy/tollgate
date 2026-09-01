@@ -1,0 +1,45 @@
+export type TrafficType = "internal" | "demo" | "external";
+
+export type ProviderId = "openai" | "anthropic" | "gemini" | "openrouter";
+export type CostStatus = "reported" | "estimated" | "unavailable";
+export type MeterEnvironment = "test" | "live";
+export type EventStatus = "accepted" | "failed";
+export type PricingStatus = "priced" | "unpriced" | "not_billable";
+export type SupportedModel = "gpt-5.4-mini" | "gpt-5.4-nano" | "gpt-5-nano" | "gpt-5.6-luna";
+
+export type SafeCallRecord = {
+  projectId: string;
+  environment: MeterEnvironment;
+  idempotencyKey: string;
+  eventStatus: EventStatus;
+  pricingStatus: PricingStatus;
+  pricingSource?: "provider" | "built_in" | "rate_card" | "none";
+  rateCardId?: string;
+  customerId: string;
+  createdAt: number;
+  provider: ProviderId;
+  providerRequestId?: string;
+  requestedModel: string;
+  originalRequestedModel?: string;
+  policyApplied?: boolean;
+  reportedModel?: string;
+  promptTokens: number;
+  cachedPromptTokens: number;
+  completionTokens: number;
+  providerCostUsd?: number;
+  estimatedCostUsd?: number;
+  sameTokenEstimateUsd?: number;
+  costStatus: CostStatus;
+  latencyMs: number;
+  status: "ok" | "error";
+  errorCode?: string;
+  trafficType: TrafficType;
+  privacyMode?: "private";
+  taskId?: string;
+  sessionId?: string;
+  agentName?: string;
+  toolNames?: string[];
+  toolCallCount?: number;
+  qualityScore?: "helpful" | "not_helpful";
+  qualityRecordedAt?: number;
+};

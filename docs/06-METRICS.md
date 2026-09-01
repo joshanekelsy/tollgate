@@ -1,38 +1,33 @@
 # Metrics
 
-## Primary Build Week outcome
+## Funnel
 
-Number of external API-bill owners who complete a real first call without the builder operating the setup.
+1. Qualified AI-product operator invited.
+2. Private meter created and opened.
+3. First customer-attributed proxy call recorded.
+4. Two distinct customer IDs recorded.
+5. Default pricing saved.
+6. A completed month closes without blockers - activation.
+7. Operator exports CSV or creates a Stripe draft invoice - first value.
+8. Operator confirms one fixed customer amount matches their expected calculation.
+9. Payment asked and answered.
 
-## Metric definitions
+## Build Week numbers
 
-| Metric | Definition | Exclude |
-|---|---|---|
-| Qualified owner contacted | Named person who confirms direct responsibility or influence over a provider API bill. | Subscription-only users and unknown roles. |
-| Setup attempt | Qualified owner starts changing a non-production client's base URL or configuration. | Reading the post or viewing the dashboard. |
-| External first call | Provider returns a successful call initiated through Tollgate and paid by an outside tester's own provider key. | Builder-funded calls, demos, fabricated rows, and failed calls. |
-| Metered call | Successful provider call with reported usage and a calculated estimate. | Rows missing usage or price. |
-| Activated user | Qualified owner completes an external first call. | Account creation or verbal interest. |
-| Retained next-day user | Activated user sends another real call on a later calendar day. | Repeated calls during setup. |
-| Revenue evidence | Payment, deposit, or written pilot commitment with a price. | “I would pay,” likes, and compliments. |
+- Qualified operators contacted and interviewed.
+- External meters created.
+- External customer-attributed calls.
+- Distinct external customer IDs.
+- Pricing rules and exact model rate cards saved.
+- Billing runs closed with at least two customers.
+- CSV exports and Stripe draft invoices created.
+- Correctness confirmations.
+- Payment asks, yes/no decisions and revenue.
 
-## Dashboard honesty
+## Guardrails
 
-Keep three sets of numbers separate:
+Do not count internal or synthetic traffic as customer traction. Do not call Stripe drafts invoices sent. Do not call estimated or rate-card model cost authoritative over the provider invoice.
 
-- Fabricated demo data: labelled demo and never reported as traction.
-- Builder test data: labelled internal and excluded from external usage.
-- External usage: reportable Build Week numbers.
+## Aha moment
 
-## Saturday scorecard
-
-| Number | Target | Actual |
-|---|---:|---:|
-| Qualified owners contacted | 10 | — |
-| User sessions | 3 | — |
-| Setup attempts | 3 | — |
-| Testers accepting credential pass-through | Report actual | — |
-| External first calls | 1+ | — |
-| Metered external calls | Report actual | — |
-| Next-day retained users | Report actual | — |
-| Revenue evidence | Report actual | — |
+The operator sees two customers separated automatically and recognizes the billed amount they would otherwise calculate manually.

@@ -1,47 +1,34 @@
 # Validation Plan
 
-## Question to answer first
+## Riskiest assumption
 
-Will a direct API-bill owner let one non-production request, including their provider authorization, pass through Tollgate when neither key nor content is persisted?
+A direct API-bill owner will trust a private proxy enough to run one representative non-production task and will use the comparison to make a model decision.
 
-## 30-minute no-code test
+## First candidates
 
-Send this to one qualified person:
+- Eshant — qualification not yet confirmed.
+- Murali — qualification not yet confirmed.
+- One GrowthX founder or engineering lead who directly pays or controls a supported provider API bill — name still required.
 
-> I keep learning what my agents cost after the work is done. I am building Tollgate: change one non-production client's base URL while keeping your own OpenAI key, then see the call's estimated cost immediately. The request passes through Tollgate, but the key, prompt, and response are never stored or logged. Would you test one call this week? If not, what stops you?
+Do not count a person until they confirm direct API spend, a compatible workload and willingness to test.
 
-Pass: they agree to connect a non-production task and schedule a time.
+## Direct invite
 
-Fail: they offer general encouragement but will not connect a task.
+> I am testing Tollgate, a private meter for teams paying AI model providers directly. It attributes model usage to customers without storing API keys, prompts, or outputs. Would you give me 15 minutes to watch you create a meter and test one non-production task? I will not guide you unless you stop.
 
-## Qualification questions
+## Session protocol
 
-Ask in this order:
+1. Send only the public URL.
+2. Ask the user to share their screen and think aloud.
+3. Do not explain the product or access code.
+4. Record landing comprehension, meter creation, dashboard entry, key hesitation, task choice, comparison completion and winner selection.
+5. Ask: “What would you do next with this decision?”
+6. Ask: “Would you pay ₹2,000 or $25 per month for this today? Why or why not?”
 
-1. Do you or your team pay a model provider directly?
-2. Which provider and tool create the spend?
-3. When do you learn that spend is higher than expected?
-4. What decision would earlier visibility change?
-5. Would you let your provider key and content pass through a proxy for one non-production call if neither is persisted?
+## Pass
 
-## Monday sessions — 31 August
-
-Book three 20-minute observed sessions. In each session:
-
-1. Give the project base URL and dashboard code without a live explanation.
-2. Ask the user to send one non-production call.
-3. Record where they stop, the words they use, and whether they trust the estimate.
-4. Ask what they would do next because of the number.
-
-Do not count a session as successful if the builder changes the user's configuration.
-
-## Evidence table
-
-| Person | Direct bill? | Provider | Accepted pass-through? | First call? | Dashboard opened? | Blocker | Decision changed? |
-|---|---|---|---|---|---|---|---|
-
-## Decision rule
-
-- Continue: at least one external first call and one user names a decision the cost view changes.
-- Narrow: installation works, but trust or comprehension blocks action; fix only that blocker.
-- Stop or reposition: qualified users refuse the proxy itself, even for non-production traffic.
+- Three qualified sessions attempted.
+- Two users create a meter without help.
+- One user completes a real comparison.
+- One user takes or requests an execution action such as routing, a budget rule or an export.
+- One explicit payment decision is recorded, including “no.”
