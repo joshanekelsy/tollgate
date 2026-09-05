@@ -205,14 +205,14 @@ git diff --check
 gitleaks git --redact .
 ```
 
-- [ ] **Step 3: Commit with the GitHub private email and push to `main`**
+- [x] **Step 3: Commit with the GitHub private email and push to `main`**
 
 ```bash
 git commit -m "security: harden proxy and dashboard operations"
 git push origin main
 ```
 
-- [ ] **Step 4: Deploy Vercel and verify health, direct rejection, and one bounded live provider call**
+- [x] **Step 4: Deploy Vercel and verify health, direct rejection, and one bounded live provider call**
 
 ```bash
 vercel --prod --yes
