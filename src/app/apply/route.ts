@@ -1,7 +1,7 @@
-import { ConvexHttpClient } from "convex/browser";
 import { randomBytes } from "node:crypto";
 import { api } from "../../../convex/_generated/api";
 import { accessCodeLookup, generateAccessCode, hashAccessCode } from "@/lib/access-code";
+import { createConvexServiceClient } from "@/lib/convex-service";
 import { dashboardPath, dashboardUrl, proxyBaseUrl } from "@/lib/meter-links";
 import { generateWriteKey, hashWriteKey, writeKeyPrefix } from "@/lib/write-key";
 
@@ -21,9 +21,8 @@ export async function POST(request: Request) {
   const pain = typeof body.pain === "string" ? body.pain.trim().slice(0, 500) : "";
   if (!email || !email.includes("@")) return Response.json({ error: "A valid email is required" }, { status: 400 });
 
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return Response.json({ error: "Applications are not configured" }, { status: 503 });
-  const convex = new ConvexHttpClient(url);
+  const convex = createConvexServiceClient();
+  if (!convex) return Response.json({ error: "Applications are not configured" }, { status: 503 });
   await convex.mutation(api.applications.apply, {
     name, email, provider: provider as "openai" | "anthropic" | "gemini" | "openrouter" | "hosted-open-model" | "other", pain: pain || undefined, source: source as "growthx" | "linkedin" | "direct" | "other", createdAt: Date.now(),
   });

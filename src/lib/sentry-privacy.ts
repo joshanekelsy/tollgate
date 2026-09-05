@@ -16,6 +16,8 @@ type SentryLikeEvent = {
 
 const SECRET_PATTERNS = [
   /\b(?:tgw_(?:test|live)_[A-Za-z0-9_-]+|sk-[A-Za-z0-9_-]+|rk_(?:test|live)_[A-Za-z0-9]+|whsec_[A-Za-z0-9]+)\b/g,
+  /\b(?:serviceToken|CONVEX_SERVICE_TOKEN)\s*[:=]\s*["']?[^\s,;"']+/gi,
+  /\b[A-Fa-f0-9]{64}\b/g,
   /\b[A-Za-z0-9_-]{32}\b/g,
   /\b(?:authorization|x-api-key|x-goog-api-key|x-tollgate-key)\s*[:=]\s*[^\s,;]+/gi,
 ];

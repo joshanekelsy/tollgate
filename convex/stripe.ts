@@ -1,8 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 export const saveConnection = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     encryptedSecretKey: v.string(),
     encryptedWebhookSecret: v.string(),
@@ -13,6 +15,7 @@ export const saveConnection = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const existing = await ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).unique();
     const values = {
       encryptedSecretKey: args.encryptedSecretKey,
@@ -32,14 +35,18 @@ export const saveConnection = mutation({
 });
 
 export const getConnection = query({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", projectId)).unique(),
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    return ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).unique();
+  },
 });
 
 export const getMetadata = query({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => {
-    const connection = await ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", projectId)).unique();
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    const connection = await ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).unique();
     if (!connection) return null;
     return {
       keyPrefix: connection.keyPrefix,
@@ -52,9 +59,10 @@ export const getMetadata = query({
 });
 
 export const removeConnection = mutation({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => {
-    const connection = await ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", projectId)).unique();
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    const connection = await ctx.db.query("stripeConnections").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).unique();
     if (!connection) return false;
     await ctx.db.delete(connection._id);
     return true;
@@ -63,6 +71,7 @@ export const removeConnection = mutation({
 
 export const recordWebhook = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     eventId: v.string(),
     eventType: v.string(),
@@ -71,6 +80,7 @@ export const recordWebhook = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const previous = await ctx.db.query("stripeWebhookEvents").withIndex("by_project_event", (q) => q.eq("projectId", args.projectId).eq("eventId", args.eventId)).unique();
     if (previous) return { duplicate: true, matched: true };
     const item = await ctx.db.query("billingRunItems").withIndex("by_project_stripe_invoice", (q) => q.eq("projectId", args.projectId).eq("stripeInvoiceId", args.stripeInvoiceId)).unique();

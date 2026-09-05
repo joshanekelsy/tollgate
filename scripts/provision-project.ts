@@ -1,6 +1,6 @@
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../convex/_generated/api";
 import { accessCodeLookup, generateAccessCode, hashAccessCode } from "../src/lib/access-code";
+import { createConvexServiceClient } from "../src/lib/convex-service";
 import { generateWriteKey, hashWriteKey, writeKeyPrefix } from "../src/lib/write-key";
 
 const projectId = process.argv[2]?.trim();
@@ -18,7 +18,8 @@ async function main() {
   const testWriteKey = generateWriteKey("test");
   const liveWriteKey = generateWriteKey("live");
   const dashboardCodeHash = await hashAccessCode(accessCode);
-  const convex = new ConvexHttpClient(convexUrl as string);
+  const convex = createConvexServiceClient(convexUrl);
+  if (!convex) throw new Error("CONVEX_SERVICE_TOKEN is required");
   await convex.mutation(api.projects.create, {
     projectId: projectId as string,
     name: name as string,

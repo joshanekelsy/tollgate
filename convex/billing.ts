@@ -1,5 +1,6 @@
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 const mode = v.union(v.literal("percentage"), v.literal("per_thousand_tokens"));
 const environment = v.union(v.literal("test"), v.literal("live"));
@@ -108,6 +109,7 @@ export async function buildPeriodPreview(ctx: QueryCtx | MutationCtx, args: Peri
 
 export const saveRule = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     environment: v.optional(environment),
     customerId: v.optional(v.string()),
@@ -118,6 +120,7 @@ export const saveRule = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const selectedEnvironment = args.environment ?? "live";
     const existing = await ctx.db
       .query("pricingRules")
@@ -145,8 +148,9 @@ export const saveRule = mutation({
 });
 
 export const getRule = query({
-  args: { projectId: v.string(), environment: v.optional(environment), customerId: v.optional(v.string()) },
+  args: { ...serviceAuthArgs, projectId: v.string(), environment: v.optional(environment), customerId: v.optional(v.string()) },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const selectedEnvironment = args.environment ?? "live";
     const rules = await ctx.db
       .query("pricingRules")
@@ -171,24 +175,31 @@ export const getRule = query({
 });
 
 export const listRules = query({
-  args: { projectId: v.string(), environment },
+  args: { ...serviceAuthArgs, projectId: v.string(), environment },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const rules = await ctx.db.query("pricingRules").withIndex("by_project_environment", (q) => q.eq("projectId", args.projectId).eq("environment", args.environment)).collect();
     return rules.filter((rule) => rule.active);
   },
 });
 
 export const previewPeriod = query({
-  args: { projectId: v.string(), environment, periodStart: v.number(), periodEnd: v.number() },
-  handler: buildPeriodPreview,
+  args: { ...serviceAuthArgs, projectId: v.string(), environment, periodStart: v.number(), periodEnd: v.number() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    return buildPeriodPreview(ctx, args);
+  },
 });
 
 export const currentMonth = query({
-  args: { projectId: v.string(), monthStart: v.number(), nextMonthStart: v.number() },
-  handler: async (ctx, args) => buildPeriodPreview(ctx, {
-    projectId: args.projectId,
-    environment: "live",
-    periodStart: args.monthStart,
-    periodEnd: args.nextMonthStart,
-  }),
+  args: { ...serviceAuthArgs, projectId: v.string(), monthStart: v.number(), nextMonthStart: v.number() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    return buildPeriodPreview(ctx, {
+      projectId: args.projectId,
+      environment: "live",
+      periodStart: args.monthStart,
+      periodEnd: args.nextMonthStart,
+    });
+  },
 });

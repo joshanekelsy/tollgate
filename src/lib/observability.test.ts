@@ -27,6 +27,7 @@ describe("observability privacy", () => {
 
   it("redacts known secret formats", () => {
     expect(redactSecrets("rk_test_abc123 whsec_abc123 sk-project-secret")).toBe("[redacted] [redacted] [redacted]");
+    expect(redactSecrets(`serviceToken=${"a".repeat(64)}`)).toBe("[redacted]");
   });
 
   it("allows only planned analytics names and safe properties", () => {

@@ -16,6 +16,7 @@ import type * as customers from "../customers.js";
 import type * as health from "../health.js";
 import type * as projects from "../projects.js";
 import type * as rateCards from "../rateCards.js";
+import type * as serviceAuth from "../serviceAuth.js";
 import type * as stripe from "../stripe.js";
 import type * as taskPolicies from "../taskPolicies.js";
 
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   health: typeof health;
   projects: typeof projects;
   rateCards: typeof rateCards;
+  serviceAuth: typeof serviceAuth;
   stripe: typeof stripe;
   taskPolicies: typeof taskPolicies;
 }>;

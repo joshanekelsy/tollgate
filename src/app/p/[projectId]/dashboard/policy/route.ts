@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../../convex/_generated/api";
+import { createConvexServiceClient } from "@/lib/convex-service";
 import { verifyDashboardSession } from "@/lib/session";
 import { isSupportedModel } from "@/lib/pricing";
 
@@ -8,11 +8,11 @@ export const runtime = "nodejs";
 
 async function authorized(projectId: string) {
   const secret = process.env.DASHBOARD_SESSION_SECRET;
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!secret || !convexUrl) return null;
+  const convex = createConvexServiceClient();
+  if (!secret || !convex) return null;
   const token = (await cookies()).get("tollgate_dashboard_session")?.value;
   if (!token || !verifyDashboardSession(token, projectId, Date.now(), secret)) return null;
-  return new ConvexHttpClient(convexUrl);
+  return convex;
 }
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {

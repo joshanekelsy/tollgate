@@ -58,7 +58,7 @@ npx convex dev
 npm run dev
 ```
 
-`DASHBOARD_SESSION_SECRET` signs the private browser session. `STRIPE_KEY_ENCRYPTION_SECRET` encrypts each project's Stripe restricted key and webhook secret before storage. Vercel Web Analytics works without an application key. Amplitude uses `NEXT_PUBLIC_AMPLITUDE_API_KEY`. Sentry uses the public/server DSNs plus its organization, project, and build token values. Both integrations stay inactive when those values are absent.
+`CONVEX_SERVICE_TOKEN` authorizes server-side database calls and must contain the same random value in the Next.js and Convex environments; never give it a `NEXT_PUBLIC_` prefix. `DASHBOARD_SESSION_SECRET` signs the private browser session. `STRIPE_KEY_ENCRYPTION_SECRET` encrypts each project's Stripe restricted key and webhook secret before storage. Vercel Web Analytics works without an application key. Amplitude uses `NEXT_PUBLIC_AMPLITUDE_API_KEY`. Sentry uses the public/server DSNs plus its organization, project, and build token values. Both integrations stay inactive when those values are absent.
 
 ## Verification
 

@@ -1,11 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 const environment = v.union(v.literal("test"), v.literal("live"));
 
 export const list = query({
-  args: { projectId: v.string(), environment },
+  args: { ...serviceAuthArgs, projectId: v.string(), environment },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const customers = await ctx.db
       .query("customers")
       .withIndex("by_project_environment", (q) => q.eq("projectId", args.projectId).eq("environment", args.environment))
@@ -16,6 +18,7 @@ export const list = query({
 
 export const upsert = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     environment,
     customerId: v.string(),
@@ -26,6 +29,7 @@ export const upsert = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const existing = await ctx.db
       .query("customers")
       .withIndex("by_project_environment_customer", (q) => q

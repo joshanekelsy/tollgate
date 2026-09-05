@@ -16,8 +16,9 @@ loadEnvConfig(process.cwd());
 const origin = process.env.TOLLGATE_TEST_ORIGIN || "http://127.0.0.1:3100";
 const providerKey = process.env.OPENAI_API_KEY || "";
 const convexUrl = process.env.TOLLGATE_TEST_CONVEX_URL || process.env.NEXT_PUBLIC_CONVEX_URL || "";
+const serviceToken = process.env.CONVEX_SERVICE_TOKEN || "";
 const resultsDir = path.join(process.cwd(), "test-results");
-const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
+const convex = convexUrl && serviceToken ? new ConvexHttpClient(convexUrl) : null;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -215,6 +216,7 @@ async function seedHistoricalCall(projectId) {
   assert(convex, "NEXT_PUBLIC_CONVEX_URL is required for the completed-month test");
   const { periodStart, periodEnd } = previousPeriod();
   await convex.mutation(api.calls.record, {
+    serviceToken,
     projectId,
     environment: "live",
     idempotencyKey: `historical-${Date.now()}`,
@@ -554,6 +556,7 @@ async function verifyPublicPages(browser, viewport, label) {
 (async () => {
   fs.mkdirSync(resultsDir, { recursive: true });
   assert(convexUrl, "NEXT_PUBLIC_CONVEX_URL is missing");
+  assert(serviceToken.length >= 32, "CONVEX_SERVICE_TOKEN is missing or too short");
   const browser = await chromium.launch({ headless: true });
   try {
     const meter = await createMeter(browser, { width: 1440, height: 900 }, "desktop");

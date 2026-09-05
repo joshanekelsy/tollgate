@@ -14,3 +14,4 @@
 | 2026-08-30 | Landing proof uses one controlled production comparison. | Real output, cost and latency are stronger and more honest than an illustration. |
 | 2026-08-31 | Supersede the OpenAI-only proxy with four fixed provider adapters. | Metering is provider-neutral, but authentication, paths, usage fields, errors and cost sources require explicit OpenAI, Anthropic, Gemini and OpenRouter translations. |
 | 2026-08-31 | Treat the price catalogue as pricing data, not a model allowlist. | A safe provider model ID may pass through even when Tollgate cannot calculate monetary cost; unavailable cost must remain explicit. |
+| 2026-09-05 | Require server authorization for every sensitive Convex function. | Browser-facing Next.js routes already check dashboard sessions and write keys, but the database layer must independently reject direct unauthenticated calls. |

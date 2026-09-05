@@ -1,11 +1,13 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { buildPeriodPreview } from "./billing";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 export const list = query({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => {
-    const runs = await ctx.db.query("billingRuns").withIndex("by_project", (q) => q.eq("projectId", projectId)).order("desc").take(24);
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    const runs = await ctx.db.query("billingRuns").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).order("desc").take(24);
     return Promise.all(runs.map(async (run) => ({
       ...run,
       items: await ctx.db.query("billingRunItems").withIndex("by_run", (q) => q.eq("runId", run._id)).collect(),
@@ -14,8 +16,9 @@ export const list = query({
 });
 
 export const get = query({
-  args: { projectId: v.string(), runId: v.id("billingRuns") },
+  args: { ...serviceAuthArgs, projectId: v.string(), runId: v.id("billingRuns") },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const run = await ctx.db.get(args.runId);
     if (!run || run.projectId !== args.projectId) return null;
     const items = await ctx.db.query("billingRunItems").withIndex("by_run", (q) => q.eq("runId", run._id)).collect();
@@ -24,8 +27,9 @@ export const get = query({
 });
 
 export const closePeriod = mutation({
-  args: { projectId: v.string(), periodStart: v.number(), periodEnd: v.number(), now: v.number() },
+  args: { ...serviceAuthArgs, projectId: v.string(), periodStart: v.number(), periodEnd: v.number(), now: v.number() },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const existing = await ctx.db
       .query("billingRuns")
       .withIndex("by_project_environment_period", (q) => q
@@ -92,8 +96,9 @@ export const closePeriod = mutation({
 });
 
 export const beginStripeExport = mutation({
-  args: { projectId: v.string(), runId: v.id("billingRuns") },
+  args: { ...serviceAuthArgs, projectId: v.string(), runId: v.id("billingRuns") },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const run = await ctx.db.get(args.runId);
     if (!run || run.projectId !== args.projectId) return false;
     if (run.status === "closed" || run.status === "partial") await ctx.db.patch(run._id, { status: "exporting" });
@@ -102,8 +107,9 @@ export const beginStripeExport = mutation({
 });
 
 export const recordStripeInvoice = mutation({
-  args: { projectId: v.string(), itemId: v.id("billingRunItems"), stripeInvoiceId: v.string(), now: v.number() },
+  args: { ...serviceAuthArgs, projectId: v.string(), itemId: v.id("billingRunItems"), stripeInvoiceId: v.string(), now: v.number() },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const item = await ctx.db.get(args.itemId);
     if (!item || item.projectId !== args.projectId) return false;
     await ctx.db.patch(item._id, { stripeInvoiceId: args.stripeInvoiceId, stripeError: undefined, updatedAt: args.now });
@@ -113,6 +119,7 @@ export const recordStripeInvoice = mutation({
 
 export const recordStripeResult = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     itemId: v.id("billingRunItems"),
     stripeStatus: v.union(v.literal("draft"), v.literal("failed")),
@@ -120,6 +127,7 @@ export const recordStripeResult = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const item = await ctx.db.get(args.itemId);
     if (!item || item.projectId !== args.projectId) return false;
     await ctx.db.patch(item._id, { stripeStatus: args.stripeStatus, stripeError: args.error, updatedAt: args.now });

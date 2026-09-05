@@ -1,8 +1,10 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 export const create = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     name: v.string(),
     dashboardCodeHash: v.string(),
@@ -15,13 +17,14 @@ export const create = mutation({
     })),
   },
   handler: async (ctx, args) => {
+    const { serviceToken, meterKeys, ...project } = args;
+    requireServiceToken({ serviceToken });
     const existing = await ctx.db
       .query("projects")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .unique();
 
     if (existing) throw new Error("Project ID already exists");
-    const { meterKeys, ...project } = args;
     const projectDocId = await ctx.db.insert("projects", { ...project, active: true });
     for (const key of meterKeys) {
       await ctx.db.insert("meterKeys", { ...key, projectId: args.projectId, active: true, createdAt: args.createdAt });
@@ -31,8 +34,9 @@ export const create = mutation({
 });
 
 export const authenticateWriteKey = query({
-  args: { projectId: v.string(), keyHash: v.string() },
+  args: { ...serviceAuthArgs, projectId: v.string(), keyHash: v.string() },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const key = await ctx.db
       .query("meterKeys")
       .withIndex("by_project_hash", (q) => q.eq("projectId", args.projectId).eq("keyHash", args.keyHash))
@@ -44,6 +48,7 @@ export const authenticateWriteKey = query({
 
 export const rotateWriteKey = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     environment: v.union(v.literal("test"), v.literal("live")),
     keyHash: v.string(),
@@ -51,6 +56,7 @@ export const rotateWriteKey = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const existing = await ctx.db
       .query("meterKeys")
       .withIndex("by_project_environment", (q) => q.eq("projectId", args.projectId).eq("environment", args.environment))
@@ -70,9 +76,10 @@ export const rotateWriteKey = mutation({
 });
 
 export const listKeyMetadata = query({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => {
-    const keys = await ctx.db.query("meterKeys").withIndex("by_project", (q) => q.eq("projectId", projectId)).collect();
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    const keys = await ctx.db.query("meterKeys").withIndex("by_project", (q) => q.eq("projectId", args.projectId)).collect();
     return keys.filter((key) => key.active).map((key) => ({
       environment: key.environment,
       keyPrefix: key.keyPrefix,
@@ -82,11 +89,12 @@ export const listKeyMetadata = query({
 });
 
 export const findByCodeLookup = query({
-  args: { dashboardCodeLookup: v.string() },
-  handler: async (ctx, { dashboardCodeLookup }) => {
+  args: { ...serviceAuthArgs, dashboardCodeLookup: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
     const project = await ctx.db
       .query("projects")
-      .withIndex("by_dashboardCodeLookup", (q) => q.eq("dashboardCodeLookup", dashboardCodeLookup))
+      .withIndex("by_dashboardCodeLookup", (q) => q.eq("dashboardCodeLookup", args.dashboardCodeLookup))
       .unique();
     if (!project?.active) return null;
     return { projectId: project.projectId, name: project.name, dashboardCodeHash: project.dashboardCodeHash };
@@ -94,11 +102,12 @@ export const findByCodeLookup = query({
 });
 
 export const resolveActive = query({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => {
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
     const project = await ctx.db
       .query("projects")
-      .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .unique();
 
     return project?.active ? { projectId: project.projectId } : null;
@@ -106,11 +115,12 @@ export const resolveActive = query({
 });
 
 export const getAccessRecord = query({
-  args: { projectId: v.string() },
-  handler: async (ctx, { projectId }) => {
+  args: { ...serviceAuthArgs, projectId: v.string() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
     const project = await ctx.db
       .query("projects")
-      .withIndex("by_projectId", (q) => q.eq("projectId", projectId))
+      .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .unique();
 
     if (!project?.active) return null;

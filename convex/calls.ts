@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 const callFields = {
   projectId: v.string(),
@@ -39,47 +40,51 @@ const callFields = {
 };
 
 export const record = mutation({
-  args: callFields,
+  args: { ...serviceAuthArgs, ...callFields },
   handler: async (ctx, args) => {
-    const callId = await ctx.db.insert("calls", args);
-    if (args.customerId !== "unattributed") {
+    const { serviceToken, ...call } = args;
+    requireServiceToken({ serviceToken });
+    const callId = await ctx.db.insert("calls", call);
+    if (call.customerId !== "unattributed") {
       const customer = await ctx.db
         .query("customers")
         .withIndex("by_project_environment_customer", (q) => q
-          .eq("projectId", args.projectId)
-          .eq("environment", args.environment)
-          .eq("customerId", args.customerId))
+          .eq("projectId", call.projectId)
+          .eq("environment", call.environment)
+          .eq("customerId", call.customerId))
         .unique();
       if (!customer) {
         await ctx.db.insert("customers", {
-          projectId: args.projectId,
-          environment: args.environment,
-          customerId: args.customerId,
+          projectId: call.projectId,
+          environment: call.environment,
+          customerId: call.customerId,
           status: "active",
-          createdAt: args.createdAt,
-          updatedAt: args.createdAt,
+          createdAt: call.createdAt,
+          updatedAt: call.createdAt,
         });
       }
     }
     const receipt = await ctx.db
       .query("eventReceipts")
       .withIndex("by_project_environment_key", (q) => q
-        .eq("projectId", args.projectId)
-        .eq("environment", args.environment)
-        .eq("idempotencyKey", args.idempotencyKey))
+        .eq("projectId", call.projectId)
+        .eq("environment", call.environment)
+        .eq("idempotencyKey", call.idempotencyKey))
       .unique();
-    if (receipt) await ctx.db.patch(receipt._id, { state: "recorded", callId, lastSeenAt: args.createdAt });
+    if (receipt) await ctx.db.patch(receipt._id, { state: "recorded", callId, lastSeenAt: call.createdAt });
     return callId;
   },
 });
 
 export const events = query({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     environment: v.union(v.literal("test"), v.literal("live")),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const limit = Math.max(1, Math.min(Math.floor(args.limit ?? 100), 200));
     const recent = await ctx.db
       .query("calls")
@@ -108,6 +113,7 @@ export const events = query({
 
 export const reserve = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     environment: v.union(v.literal("test"), v.literal("live")),
     idempotencyKey: v.string(),
@@ -115,6 +121,7 @@ export const reserve = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const receipt = await ctx.db
       .query("eventReceipts")
       .withIndex("by_project_environment_key", (q) => q
@@ -144,14 +151,15 @@ export const reserve = mutation({
 });
 
 export const summary = query({
-  args: { projectId: v.string(), now: v.number() },
-  handler: async (ctx, { projectId, now }) => {
+  args: { ...serviceAuthArgs, projectId: v.string(), now: v.number() },
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
     const calls = await ctx.db
       .query("calls")
-      .withIndex("by_project_createdAt", (q) => q.eq("projectId", projectId))
+      .withIndex("by_project_createdAt", (q) => q.eq("projectId", args.projectId))
       .order("desc")
       .take(50);
-    const todayStart = new Date(now).setUTCHours(0, 0, 0, 0);
+    const todayStart = new Date(args.now).setUTCHours(0, 0, 0, 0);
     const weekStart = todayStart - 6 * 24 * 60 * 60 * 1000;
     const total = (start: number) =>
       calls.reduce((sum, call) => sum + (call.createdAt >= start ? call.providerCostUsd ?? call.estimatedCostUsd ?? 0 : 0), 0);
@@ -161,14 +169,16 @@ export const summary = query({
 
 export const recordQuality = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     callId: v.id("calls"),
     score: v.union(v.literal("helpful"), v.literal("not_helpful")),
     recordedAt: v.number(),
   },
-  handler: async (ctx, { projectId, callId, score, recordedAt }) => {
-    const call = await ctx.db.get(callId);
-    if (!call || call.projectId !== projectId) throw new Error("Call not found");
-    await ctx.db.patch(callId, { qualityScore: score, qualityRecordedAt: recordedAt });
+  handler: async (ctx, args) => {
+    requireServiceToken(args);
+    const call = await ctx.db.get(args.callId);
+    if (!call || call.projectId !== args.projectId) throw new Error("Call not found");
+    await ctx.db.patch(args.callId, { qualityScore: args.score, qualityRecordedAt: args.recordedAt });
   },
 });

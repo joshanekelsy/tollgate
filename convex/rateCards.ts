@@ -1,12 +1,14 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 const environment = v.union(v.literal("test"), v.literal("live"));
 const provider = v.union(v.literal("openai"), v.literal("anthropic"), v.literal("gemini"), v.literal("openrouter"));
 
 export const list = query({
-  args: { projectId: v.string(), environment },
+  args: { ...serviceAuthArgs, projectId: v.string(), environment },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const rates = await ctx.db
       .query("rateCards")
       .withIndex("by_project_environment", (q) => q.eq("projectId", args.projectId).eq("environment", args.environment))
@@ -16,8 +18,9 @@ export const list = query({
 });
 
 export const resolve = query({
-  args: { projectId: v.string(), environment, provider, model: v.string() },
+  args: { ...serviceAuthArgs, projectId: v.string(), environment, provider, model: v.string() },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const rate = await ctx.db
       .query("rateCards")
       .withIndex("by_project_environment_provider_model", (q) => q
@@ -37,6 +40,7 @@ export const resolve = query({
 
 export const save = mutation({
   args: {
+    ...serviceAuthArgs,
     projectId: v.string(),
     environment,
     provider,
@@ -46,6 +50,7 @@ export const save = mutation({
     now: v.number(),
   },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const existing = await ctx.db
       .query("rateCards")
       .withIndex("by_project_environment_provider_model", (q) => q
@@ -76,8 +81,9 @@ export const save = mutation({
 });
 
 export const remove = mutation({
-  args: { projectId: v.string(), environment, provider, model: v.string(), now: v.number() },
+  args: { ...serviceAuthArgs, projectId: v.string(), environment, provider, model: v.string(), now: v.number() },
   handler: async (ctx, args) => {
+    requireServiceToken(args);
     const existing = await ctx.db
       .query("rateCards")
       .withIndex("by_project_environment_provider_model", (q) => q

@@ -1,5 +1,5 @@
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../../convex/_generated/api";
+import { createConvexServiceClient } from "@/lib/convex-service";
 import { openSecret } from "@/lib/secret-box";
 import { verifyStripeSignature } from "@/lib/stripe";
 
@@ -21,12 +21,11 @@ function invoiceStatus(type: string, objectStatus: unknown) {
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
   const master = process.env.STRIPE_KEY_ENCRYPTION_SECRET;
-  if (!convexUrl || !master) return Response.json({ error: "Webhook is not configured" }, { status: 503 });
+  const convex = createConvexServiceClient();
+  if (!convex || !master) return Response.json({ error: "Webhook is not configured" }, { status: 503 });
   const payload = await request.text();
   const signature = request.headers.get("stripe-signature") ?? "";
-  const convex = new ConvexHttpClient(convexUrl);
   const connection = await convex.query(api.stripe.getConnection, { projectId });
   if (!connection) return Response.json({ error: "Stripe connection not found" }, { status: 404 });
   let webhookSecret: string;

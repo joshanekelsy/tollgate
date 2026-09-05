@@ -1,5 +1,5 @@
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../../../convex/_generated/api";
+import { createConvexServiceClient } from "@/lib/convex-service";
 import { handleChatCompletion } from "@/lib/proxy";
 import type { SafeCallRecord } from "@/lib/types";
 
@@ -7,9 +7,8 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  if (!url) return Response.json({ error: { message: "Tollgate is not configured" } }, { status: 503 });
-  const convex = new ConvexHttpClient(url);
+  const convex = createConvexServiceClient();
+  if (!convex) return Response.json({ error: { message: "Tollgate is not configured" } }, { status: 503 });
 
   return handleChatCompletion(request, projectId, {
     resolveProject: async (id) => convex.query(api.projects.resolveActive, { projectId: id }),

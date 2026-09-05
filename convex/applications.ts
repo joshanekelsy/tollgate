@@ -1,13 +1,17 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { requireServiceToken, serviceAuthArgs } from "./serviceAuth";
 
 export const apply = mutation({
   args: {
+    ...serviceAuthArgs,
     createdAt: v.number(), name: v.string(), email: v.string(), provider: v.union(v.literal("openai"), v.literal("anthropic"), v.literal("gemini"), v.literal("openrouter"), v.literal("hosted-open-model"), v.literal("other")), pain: v.optional(v.string()),
     source: v.union(v.literal("growthx"), v.literal("linkedin"), v.literal("direct"), v.literal("other")),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db.query("testApplications").withIndex("by_email", (q) => q.eq("email", args.email)).first();
-    return existing?._id ?? ctx.db.insert("testApplications", args);
+    const { serviceToken, ...application } = args;
+    requireServiceToken({ serviceToken });
+    const existing = await ctx.db.query("testApplications").withIndex("by_email", (q) => q.eq("email", application.email)).first();
+    return existing?._id ?? ctx.db.insert("testApplications", application);
   },
 });
