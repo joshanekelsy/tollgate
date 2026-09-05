@@ -10,7 +10,7 @@ X-Tollgate-Idempotency-Key: req_01J...
 X-Tollgate-Customer: customer-acme
 ```
 
-The write key protects meter ingestion. The retry ID prevents the same request from being recorded or sent to the provider twice. Separate test and live keys keep test data out of production billing.
+The write key protects meter ingestion. The retry ID prevents the same prepared request from being recorded or sent to the provider twice; reusing it for different content or settings returns a conflict. The comparison uses a keyed one-way fingerprint without storing the request. Separate test and live keys keep test data out of production billing.
 
 ## Current boundary
 
@@ -24,6 +24,7 @@ The write key protects meter ingestion. The retry ID prevents the same request f
 - A US Stripe account can receive draft invoices for customers with Stripe customer IDs. Tollgate does not finalize, send, or collect those invoices.
 - Subscriptions, tax, proration, credits, refunds, and failed-payment recovery are not included.
 - Provider keys, authorization headers, prompts, responses, and tool arguments pass through memory for the request and are not persisted.
+- Customer IDs use 1 to 80 safe characters, and provider responses above 4 MiB are rejected instead of being loaded without a bound.
 - Provider invoices remain authoritative for raw model cost.
 
 ## Product surfaces

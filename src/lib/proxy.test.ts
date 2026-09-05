@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleChatCompletion, handleProviderRequest } from "./proxy";
+import { handleChatCompletion, handleProviderRequest, readResponseBytes } from "./proxy";
 import { buildInvoiceRows } from "./billing";
 import type { SafeCallRecord } from "./types";
 
@@ -71,6 +71,52 @@ describe("handleChatCompletion", () => {
     deps.reserveEvent.mockResolvedValueOnce({ outcome });
     const response = await handleChatCompletion(request({ model: "gpt-5.4-mini" }), "demo", deps);
     expect(response.status).toBe(409);
+    expect(deps.fetchUpstream).not.toHaveBeenCalled();
+  });
+
+  it("uses the prepared request payload when identifying a retry", async () => {
+    const first = dependencies();
+    first.fetchUpstream.mockResolvedValueOnce(Response.json({ model: "gpt-5.4-mini", choices: [], usage: {} }));
+    await handleChatCompletion(request({ model: "gpt-5.4-mini", messages: [{ role: "user", content: "first private prompt" }], temperature: 0 }), "demo", first);
+
+    const second = dependencies();
+    second.fetchUpstream.mockResolvedValueOnce(Response.json({ model: "gpt-5.4-mini", choices: [], usage: {} }));
+    await handleChatCompletion(request({ model: "gpt-5.4-mini", messages: [{ role: "user", content: "second private prompt" }], temperature: 1 }), "demo", second);
+
+    const firstFingerprint = first.reserveEvent.mock.calls[0][0].requestFingerprint;
+    const secondFingerprint = second.reserveEvent.mock.calls[0][0].requestFingerprint;
+    expect(firstFingerprint).not.toBe(secondFingerprint);
+    expect(firstFingerprint).not.toContain("first private prompt");
+    expect(secondFingerprint).not.toContain("second private prompt");
+  });
+
+  it("uses provider request headers when identifying a retry without storing them", async () => {
+    const first = dependencies();
+    first.fetchUpstream.mockResolvedValueOnce(Response.json({ model: "gpt-5.4-mini", choices: [], usage: {} }));
+    await handleChatCompletion(request({ model: "gpt-5.4-mini", messages: [] }, "Bearer test-provider-key", { "openai-project": "project-first" }), "demo", first);
+
+    const second = dependencies();
+    second.fetchUpstream.mockResolvedValueOnce(Response.json({ model: "gpt-5.4-mini", choices: [], usage: {} }));
+    await handleChatCompletion(request({ model: "gpt-5.4-mini", messages: [] }, "Bearer test-provider-key", { "openai-project": "project-second" }), "demo", second);
+
+    const firstFingerprint = first.reserveEvent.mock.calls[0][0].requestFingerprint;
+    const secondFingerprint = second.reserveEvent.mock.calls[0][0].requestFingerprint;
+    expect(firstFingerprint).not.toBe(secondFingerprint);
+    expect(firstFingerprint).not.toContain("project-first");
+    expect(secondFingerprint).not.toContain("project-second");
+    expect(firstFingerprint).not.toContain("test-provider-key");
+  });
+
+  it.each(["contains private words", "a".repeat(81), "unattributed"])("rejects the unsafe customer ID %s before provider spend", async (customerId) => {
+    const deps = dependencies();
+    const response = await handleChatCompletion(request(
+      { model: "gpt-5.4-mini", messages: [] },
+      "Bearer test-provider-key",
+      { "x-tollgate-customer": customerId },
+    ), "demo", deps);
+
+    expect(response.status).toBe(400);
+    expect(deps.reserveEvent).not.toHaveBeenCalled();
     expect(deps.fetchUpstream).not.toHaveBeenCalled();
   });
 
@@ -331,5 +377,36 @@ describe("handleChatCompletion", () => {
     const stored = JSON.stringify(deps.recordCall.mock.calls[0][0]);
     expect(stored).not.toContain("private network detail");
     expect(stored).not.toContain("content");
+  });
+
+  it("rejects an oversized provider response and records a safe failure", async () => {
+    const deps = dependencies();
+    deps.fetchUpstream.mockResolvedValueOnce(new Response("small body", {
+      status: 200,
+      headers: { "content-length": String(4 * 1024 * 1024 + 1) },
+    }));
+
+    const response = await handleChatCompletion(request({ model: "gpt-5.4-mini", messages: [] }), "demo", deps);
+
+    expect(response.status).toBe(502);
+    expect(deps.recordCall.mock.calls[0][0]).toMatchObject({
+      status: "error",
+      errorCode: "upstream_response_too_large",
+      costStatus: "unavailable",
+    });
+  });
+});
+
+describe("readResponseBytes", () => {
+  it("stops reading a response that exceeds the byte limit without a content-length header", async () => {
+    const response = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("123"));
+        controller.enqueue(new TextEncoder().encode("456"));
+        controller.close();
+      },
+    }));
+
+    await expect(readResponseBytes(response, 4)).rejects.toThrow("Provider response exceeded 4 bytes");
   });
 });

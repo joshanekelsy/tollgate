@@ -1,40 +1,29 @@
-import { cookies } from "next/headers";
 import { api } from "../../../../../../convex/_generated/api";
-import { createConvexServiceClient } from "@/lib/convex-service";
-import { verifyDashboardSession } from "@/lib/session";
+import { dashboardMutationClient, noStoreJson } from "@/lib/dashboard-auth";
 import { isSupportedModel } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 
-async function authorized(projectId: string) {
-  const secret = process.env.DASHBOARD_SESSION_SECRET;
-  const convex = createConvexServiceClient();
-  if (!secret || !convex) return null;
-  const token = (await cookies()).get("tollgate_dashboard_session")?.value;
-  if (!token || !verifyDashboardSession(token, projectId, Date.now(), secret)) return null;
-  return convex;
-}
-
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await authorized(projectId);
-  if (!convex) return Response.json({ error: "Access denied" }, { status: 403 });
+  const convex = await dashboardMutationClient(request, projectId);
+  if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   let body: { taskId?: unknown; approvedModel?: unknown };
   try { body = await request.json() as typeof body; }
-  catch { return Response.json({ error: "Invalid policy" }, { status: 400 }); }
-  if (typeof body.taskId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(body.taskId) || !isSupportedModel(body.approvedModel)) return Response.json({ error: "Invalid policy" }, { status: 400 });
+  catch { return noStoreJson({ error: "Invalid policy" }, { status: 400 }); }
+  if (typeof body.taskId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(body.taskId) || !isSupportedModel(body.approvedModel)) return noStoreJson({ error: "Invalid policy" }, { status: 400 });
   await convex.mutation(api.taskPolicies.approve, { projectId, taskId: body.taskId, provider: "openai", approvedModel: body.approvedModel, now: Date.now() });
-  return Response.json({ taskId: body.taskId, provider: "openai", approvedModel: body.approvedModel }, { headers: { "cache-control": "no-store" } });
+  return noStoreJson({ taskId: body.taskId, provider: "openai", approvedModel: body.approvedModel });
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await authorized(projectId);
-  if (!convex) return Response.json({ error: "Access denied" }, { status: 403 });
+  const convex = await dashboardMutationClient(request, projectId);
+  if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   let body: { taskId?: unknown };
   try { body = await request.json() as typeof body; }
-  catch { return Response.json({ error: "Invalid policy" }, { status: 400 }); }
-  if (typeof body.taskId !== "string") return Response.json({ error: "Invalid policy" }, { status: 400 });
+  catch { return noStoreJson({ error: "Invalid policy" }, { status: 400 }); }
+  if (typeof body.taskId !== "string") return noStoreJson({ error: "Invalid policy" }, { status: 400 });
   await convex.mutation(api.taskPolicies.remove, { projectId, taskId: body.taskId, now: Date.now() });
   return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
 }

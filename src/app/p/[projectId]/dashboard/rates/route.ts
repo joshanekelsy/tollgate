@@ -1,5 +1,5 @@
 import { api } from "../../../../../../convex/_generated/api";
-import { dashboardClient, noStoreJson } from "@/lib/dashboard-auth";
+import { dashboardClient, dashboardMutationClient, noStoreJson } from "@/lib/dashboard-auth";
 import { isSafeModelId } from "@/lib/providers/shared";
 import type { ProviderId } from "@/lib/types";
 
@@ -24,7 +24,7 @@ async function bodyFor(request: Request) {
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const body = await bodyFor(request);
   const environment = selectedEnvironment(body?.environment);
@@ -41,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
 
 export async function DELETE(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const body = await bodyFor(request);
   const environment = selectedEnvironment(body?.environment);

@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { getProviderAdapter } from "./providers/registry";
 import { isSafeModelId, SAFE_PRIVATE_ID, safeObject } from "./providers/shared";
 import { hashWriteKey, isWriteKey } from "./write-key";
 import { estimateRateCardCost } from "./rate-card";
-import type { JsonObject } from "./providers/types";
+import type { JsonObject, PreparedProviderRequest } from "./providers/types";
 import type { ProviderId, SafeCallRecord, TrafficType } from "./types";
 
 export type ProxyDependencies = {
@@ -28,6 +28,10 @@ export type ProxyDependencies = {
   now: () => number;
 };
 
+const MAX_PROVIDER_RESPONSE_BYTES = 4 * 1024 * 1024;
+
+class ProviderResponseTooLargeError extends Error {}
+
 function error(message: string, status: number) {
   return Response.json({ error: { message, type: "tollgate_request_error" } }, { status });
 }
@@ -49,8 +53,10 @@ function attribution(request: Request) {
 }
 
 function customerId(request: Request) {
-  const value = request.headers.get("x-tollgate-customer")?.trim();
-  return value || "unattributed";
+  const header = request.headers.get("x-tollgate-customer");
+  if (header === null) return "unattributed";
+  const value = header.trim();
+  return value !== "unattributed" && SAFE_PRIVATE_ID.test(value) ? value : null;
 }
 
 function retryId(request: Request) {
@@ -58,8 +64,16 @@ function retryId(request: Request) {
   return value && SAFE_PRIVATE_ID.test(value) ? value : null;
 }
 
-function fingerprint(provider: string, path: string[], model: string, customer: string) {
-  return createHash("sha256").update([provider, path.join("/"), model, customer].join("\0")).digest("hex");
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`).join(",")}}`;
+}
+
+function fingerprint(writeKey: string, customer: string, prepared: PreparedProviderRequest) {
+  const headers = Object.fromEntries([...prepared.headers.entries()].sort(([left], [right]) => left.localeCompare(right)));
+  return createHmac("sha256", writeKey).update(canonicalJson({ url: prepared.url, headers, customer, body: prepared.body })).digest("hex");
 }
 
 async function requestBody(request: Request) {
@@ -80,6 +94,40 @@ function responseHeaders(upstream: Response, provider: ProviderId, providerReque
     if (provider === "gemini") headers.set("x-goog-request-id", providerRequestId);
   }
   return headers;
+}
+
+export async function readResponseBytes(response: Response, maximumBytes: number): Promise<ArrayBuffer> {
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
+    throw new ProviderResponseTooLargeError(`Provider response exceeded ${maximumBytes} bytes`);
+  }
+  if (!response.body) return new ArrayBuffer(0);
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maximumBytes) {
+        await reader.cancel();
+        throw new ProviderResponseTooLargeError(`Provider response exceeded ${maximumBytes} bytes`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return merged.buffer;
 }
 
 export async function handleProviderRequest(
@@ -128,18 +176,45 @@ export async function handleProviderRequest(
   const routedModel = approvedModel ?? requestModel;
   const policyApplied = routedModel !== requestModel;
   const resolvedCustomerId = customerId(request);
+  if (!resolvedCustomerId) return error("X-Tollgate-Customer must be a safe ID of 1 to 80 characters", 400);
+  const prepared = adapter.prepareRequest(body, matchedPath, routedModel, credentialHeaders);
   const reservation = await deps.reserveEvent({
     projectId,
     environment: meterKey.environment,
     idempotencyKey,
-    requestFingerprint: fingerprint(adapter.id, path, routedModel, resolvedCustomerId),
+    requestFingerprint: fingerprint(rawWriteKey, resolvedCustomerId, prepared),
     now: deps.now(),
   });
   if (reservation.outcome === "duplicate") return error("This retry ID was already received and will not be counted twice", 409);
   if (reservation.outcome === "conflict") return error("This retry ID was already used for a different request", 409);
   const rateCard = await deps.resolveRateCard(projectId, meterKey.environment, adapter.id, routedModel);
-  const prepared = adapter.prepareRequest(body, matchedPath, routedModel, credentialHeaders);
   const startedAt = deps.now();
+
+  const recordFailure = async (finishedAt: number, errorCode: string) => deps.recordCall({
+    projectId,
+    environment: meterKey.environment,
+    idempotencyKey,
+    eventStatus: "failed",
+    pricingStatus: "not_billable",
+    pricingSource: "none",
+    customerId: resolvedCustomerId,
+    createdAt: finishedAt,
+    provider: adapter.id,
+    requestedModel: routedModel,
+    originalRequestedModel: policyApplied ? requestModel : undefined,
+    policyApplied,
+    promptTokens: 0,
+    cachedPromptTokens: 0,
+    completionTokens: 0,
+    costStatus: "unavailable",
+    latencyMs: finishedAt - startedAt,
+    status: "error",
+    errorCode,
+    trafficType: project.trafficType ?? "external",
+    privacyMode: "private",
+    ...trace,
+    toolCallCount: 0,
+  });
 
   let upstream: Response;
   try {
@@ -150,36 +225,20 @@ export async function handleProviderRequest(
     });
   } catch {
     const finishedAt = deps.now();
-    await deps.recordCall({
-      projectId,
-      environment: meterKey.environment,
-      idempotencyKey,
-      eventStatus: "failed",
-      pricingStatus: "not_billable",
-      pricingSource: "none",
-      customerId: resolvedCustomerId,
-      createdAt: finishedAt,
-      provider: adapter.id,
-      requestedModel: routedModel,
-      originalRequestedModel: policyApplied ? requestModel : undefined,
-      policyApplied,
-      promptTokens: 0,
-      cachedPromptTokens: 0,
-      completionTokens: 0,
-      costStatus: "unavailable",
-      latencyMs: finishedAt - startedAt,
-      status: "error",
-      errorCode: "upstream_unavailable",
-      trafficType: project.trafficType ?? "external",
-      privacyMode: "private",
-      ...trace,
-      toolCallCount: 0,
-    });
+    await recordFailure(finishedAt, "upstream_unavailable");
     return error(`${adapter.label} could not be reached`, 502);
   }
 
+  let responseBytes: ArrayBuffer;
+  try {
+    responseBytes = await readResponseBytes(upstream, MAX_PROVIDER_RESPONSE_BYTES);
+  } catch (readError) {
+    const finishedAt = deps.now();
+    const tooLarge = readError instanceof ProviderResponseTooLargeError;
+    await recordFailure(finishedAt, tooLarge ? "upstream_response_too_large" : "upstream_response_unavailable");
+    return error(tooLarge ? `${adapter.label} returned a response larger than 4 MiB` : `${adapter.label} response could not be read`, 502);
+  }
   const finishedAt = deps.now();
-  const responseBytes = await upstream.arrayBuffer();
   let parsed: JsonObject | null = null;
   try {
     parsed = safeObject(JSON.parse(new TextDecoder().decode(responseBytes)));

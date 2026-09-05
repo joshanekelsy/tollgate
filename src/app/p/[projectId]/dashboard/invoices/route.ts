@@ -1,20 +1,16 @@
-import { cookies } from "next/headers";
 import { api } from "../../../../../../convex/_generated/api";
-import { createConvexServiceClient } from "@/lib/convex-service";
-import { verifyDashboardSession } from "@/lib/session";
+import { dashboardClient, noStoreJson } from "@/lib/dashboard-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const secret = process.env.DASHBOARD_SESSION_SECRET;
-  const convex = createConvexServiceClient();
-  const token = (await cookies()).get("tollgate_dashboard_session")?.value;
-  if (!secret || !convex || !token || !verifyDashboardSession(token, projectId, Date.now(), secret)) return Response.json({ error: "Access denied" }, { status: 403 });
+  const convex = await dashboardClient(projectId);
+  if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const now = new Date();
   const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
   const nextMonthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
   const invoice = await convex.query(api.billing.currentMonth, { projectId, monthStart, nextMonthStart });
-  return Response.json({ ...invoice, monthStart }, { headers: { "cache-control": "no-store" } });
+  return noStoreJson({ ...invoice, monthStart });
 }

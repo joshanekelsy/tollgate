@@ -1,5 +1,5 @@
 import { api } from "../../../../../../convex/_generated/api";
-import { dashboardClient, noStoreJson } from "@/lib/dashboard-auth";
+import { dashboardClient, dashboardMutationClient, noStoreJson } from "@/lib/dashboard-auth";
 import { SAFE_PRIVATE_ID } from "@/lib/providers/shared";
 
 export const runtime = "nodejs";
@@ -19,7 +19,7 @@ export async function GET(request: Request, context: { params: Promise<{ project
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = await request.json() as Record<string, unknown>; }

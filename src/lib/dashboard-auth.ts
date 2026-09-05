@@ -11,6 +11,22 @@ export async function dashboardClient(projectId: string) {
   return convex;
 }
 
+export function isTrustedDashboardMutation(request: Request) {
+  if (request.headers.get("sec-fetch-site") === "cross-site") return false;
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+export async function dashboardMutationClient(request: Request, projectId: string) {
+  if (!isTrustedDashboardMutation(request)) return null;
+  return dashboardClient(projectId);
+}
+
 export function noStoreJson(body: unknown, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set("cache-control", "no-store");

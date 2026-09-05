@@ -1,14 +1,14 @@
 import { api } from "../../../../../../../../convex/_generated/api";
 import type { Id } from "../../../../../../../../convex/_generated/dataModel";
-import { dashboardClient, noStoreJson } from "@/lib/dashboard-auth";
+import { dashboardMutationClient, noStoreJson } from "@/lib/dashboard-auth";
 import { openSecret } from "@/lib/secret-box";
 import { createStripeDraft, createStripeLineItem } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
-export async function POST(_request: Request, context: { params: Promise<{ projectId: string; runId: string }> }) {
+export async function POST(request: Request, context: { params: Promise<{ projectId: string; runId: string }> }) {
   const { projectId, runId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const master = process.env.STRIPE_KEY_ENCRYPTION_SECRET;
   if (!master) return noStoreJson({ error: "Stripe secret storage is not configured" }, { status: 503 });

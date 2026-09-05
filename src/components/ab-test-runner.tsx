@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { friendlyProviderError, readAssistantText, SAMPLE_COMPARISON_RESULTS, SAMPLE_COMPARISON_TASK } from "../lib/ab-test";
 import { MODEL_PRICING, SUPPORTED_MODELS } from "../lib/pricing";
+import { dashboardJson } from "../lib/dashboard-request";
 import type { SupportedModel } from "../lib/types";
 
 type Result = { model: SupportedModel; callId: string | null; output: string; cost?: number; latencyMs: number; instructionCompliant?: boolean };
@@ -17,6 +18,7 @@ export function ABTestRunner({ projectId, taskId, onRecorded, onComparisonActive
   const [error, setError] = useState("");
   const [winner, setWinner] = useState<string | null>(null);
   const [sampleMode, setSampleMode] = useState(startWithSample);
+  const [choosing, setChoosing] = useState(false);
 
   async function runModel(model: SupportedModel, sessionId: string): Promise<Result> {
     const started = performance.now();
@@ -63,12 +65,21 @@ export function ABTestRunner({ projectId, taskId, onRecorded, onComparisonActive
     const other = results.find((result) => result.callId !== selected.callId);
     if (!other?.callId) return setError("The other measured call is missing its Tollgate ID.");
     const feedbackUrl = `/p/${encodeURIComponent(projectId)}/dashboard/feedback`;
-    const responses = await Promise.all([
-      fetch(feedbackUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ callId: selected.callId, score: "helpful" }) }),
-      fetch(feedbackUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ callId: other.callId, score: "not_helpful" }) }),
-    ]);
-    if (responses.some((response) => !response.ok)) return setError("The comparison ran, but the winner could not be saved.");
-    setWinner(selected.model); onComparisonActive?.(false); await onRecorded();
+    setChoosing(true); setError("");
+    try {
+      const responses = await Promise.all([
+        dashboardJson(feedbackUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ callId: selected.callId, score: "helpful" }) }),
+        dashboardJson(feedbackUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ callId: other.callId, score: "not_helpful" }) }),
+      ]);
+      if (responses.some((response) => !response.ok)) { setError("The comparison ran, but the winner could not be saved."); return; }
+      setWinner(selected.model); onComparisonActive?.(false);
+      try { await onRecorded(); }
+      catch { setError("The winner was saved, but the dashboard could not refresh."); }
+    } catch {
+      setError("Connection was interrupted. Refresh to confirm whether the winner was saved.");
+    } finally {
+      setChoosing(false);
+    }
   }
 
   function continueWithLiveTask() {
@@ -90,7 +101,7 @@ export function ABTestRunner({ projectId, taskId, onRecorded, onComparisonActive
       <button className="tap-target" type="submit" disabled={running}>{running ? "Running two calls…" : "Run comparison"}</button>
     </form>}
     {error ? <p className="ab-error" role="alert">{error}</p> : null}
-    {results.length ? <div className="ab-results" data-sample={sampleMode}>{results.map((result) => <article key={result.model} data-winner={winner === result.model}><header><strong>{MODEL_PRICING[result.model].label}</strong>{!sampleMode ? <span>{result.cost === undefined ? "Cost unavailable" : `$${result.cost.toFixed(6)}`} · {result.latencyMs} ms</span> : null}</header>{sampleMode ? <dl className="sample-checks"><div><dt>Cost</dt><dd>{result.cost === undefined ? "Unavailable" : `$${result.cost.toFixed(6)}`}</dd></div><div><dt>Speed</dt><dd>{result.latencyMs} ms</dd></div><div><dt>Follows the instruction</dt><dd>{result.instructionCompliant ? "Yes" : "No"}</dd></div></dl> : null}<pre>{result.output}</pre><button className="tap-target" type="button" onClick={() => choose(result)} disabled={results.length < 2 || winner !== null}>{winner === result.model ? "Choice recorded" : "Choose this result"}</button></article>)}</div> : null}
+    {results.length ? <div className="ab-results" data-sample={sampleMode}>{results.map((result) => <article key={result.model} data-winner={winner === result.model}><header><strong>{MODEL_PRICING[result.model].label}</strong>{!sampleMode ? <span>{result.cost === undefined ? "Cost unavailable" : `$${result.cost.toFixed(6)}`} · {result.latencyMs} ms</span> : null}</header>{sampleMode ? <dl className="sample-checks"><div><dt>Cost</dt><dd>{result.cost === undefined ? "Unavailable" : `$${result.cost.toFixed(6)}`}</dd></div><div><dt>Speed</dt><dd>{result.latencyMs} ms</dd></div><div><dt>Follows the instruction</dt><dd>{result.instructionCompliant ? "Yes" : "No"}</dd></div></dl> : null}<pre>{result.output}</pre><button className="tap-target" type="button" onClick={() => choose(result)} disabled={results.length < 2 || winner !== null || choosing}>{winner === result.model ? "Choice recorded" : choosing ? "Saving choice" : "Choose this result"}</button></article>)}</div> : null}
     {sampleMode && winner ? <div className="sample-decision" aria-live="polite"><div><small>Sample decision complete</small><strong>{MODEL_PRICING[winner as SupportedModel].label} recorded as the better result.</strong><p>You reached the decision without sharing an API key. Your sample choice is not added to live telemetry.</p></div><button className="tap-target" type="button" onClick={continueWithLiveTask}>Run with your own task <span>→</span></button></div> : null}
   </section>;
 }

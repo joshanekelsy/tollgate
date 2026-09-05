@@ -1,11 +1,13 @@
 import { api } from "../../../../convex/_generated/api";
 import { accessCodeLookup, verifyAccessCode } from "@/lib/access-code";
 import { createConvexServiceClient } from "@/lib/convex-service";
+import { isTrustedDashboardMutation, noStoreJson } from "@/lib/dashboard-auth";
 import { createDashboardSession, dashboardSessionCookie } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!isTrustedDashboardMutation(request)) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const secret = process.env.DASHBOARD_SESSION_SECRET;
   const convex = createConvexServiceClient();
   if (!convex || !secret) return Response.json({ error: "Meter access is not configured" }, { status: 503 });

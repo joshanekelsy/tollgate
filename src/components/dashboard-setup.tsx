@@ -6,6 +6,7 @@ import { ABTestRunner } from "@/components/ab-test-runner";
 import { ActionButton, EmptyState, EnvironmentToggle, RowStatus, ViewHeading } from "./dashboard-shared";
 import { PROVIDER_SETUP_OPTIONS, providerSetup, type SetupLanguage } from "@/lib/provider-setup";
 import { trackProductEvent } from "@/lib/analytics";
+import { dashboardJson } from "@/lib/dashboard-request";
 import type { CustomerRecord, DashboardCall, KeyMetadata, MeterEnvironment, StripeConnection } from "@/lib/dashboard-types";
 
 export function DashboardSetup({ projectId, environment, onEnvironment, events, customers, keys, stripe, webhookUrl, hasRule, onReload, demo = false }: {
@@ -31,6 +32,7 @@ export function DashboardSetup({ projectId, environment, onEnvironment, events, 
   const [webhookSecret, setWebhookSecret] = useState("");
   const [stripeMessage, setStripeMessage] = useState("");
   const [savingStripe, setSavingStripe] = useState(false);
+  const [rotatingKey, setRotatingKey] = useState(false);
   const setup = providerSetup(origin, demo ? "your-meter-id" : projectId, provider);
   const currentKey = keys.find((key) => key.environment === environment);
   const readyCustomers = customers.filter((customer) => customer.billingEmail || customer.stripeCustomerId).length;
@@ -54,29 +56,45 @@ export function DashboardSetup({ projectId, environment, onEnvironment, events, 
   async function rotateKey() {
     if (demo) { setKeyMessage("Sample keys cannot be rotated."); return; }
     if (!window.confirm(`Rotate the ${environment} write key now? The current key will stop working immediately.`)) return;
-    setKeyMessage("Rotating key..."); setNewKey(null);
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/write-keys`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ environment }) });
-    const result = await response.json() as { key?: string; error?: string };
-    if (!response.ok || !result.key) { setKeyMessage(result.error ?? "Key rotation failed."); return; }
-    setNewKey({ environment, key: result.key }); setKeyMessage("New key created. Save it now; it cannot be shown again."); await onReload();
+    setRotatingKey(true); setKeyMessage("Rotating key..."); setNewKey(null);
+    try {
+      const result = await dashboardJson<{ key?: string; error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/write-keys`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ environment }) });
+      if (!result.ok || !result.data.key) { setKeyMessage(result.data.error ?? "Key rotation failed."); return; }
+      setNewKey({ environment, key: result.data.key });
+      setKeyMessage("New key created. Save it now; it cannot be shown again.");
+      try { await onReload(); }
+      catch { setKeyMessage("New key created and shown above, but the dashboard could not refresh."); }
+    } catch {
+      setKeyMessage("Connection was interrupted. The key may have rotated; retry to create a new key you can save.");
+    } finally {
+      setRotatingKey(false);
+    }
   }
 
   async function connectStripe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (demo) { setStripeMessage("The sample Stripe connection is read-only."); return; }
     setSavingStripe(true); setStripeMessage("");
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/stripe`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ secretKey, webhookSecret }) });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) { setSavingStripe(false); setStripeMessage(result.error ?? "Stripe connection failed."); return; }
-    setSecretKey(""); setWebhookSecret(""); await onReload(); setSavingStripe(false); setStripeMessage("US Stripe account connected. Credentials are encrypted and cannot be shown again.");
-    trackProductEvent("stripe_connected", { outcome: "success", surface: "dashboard" });
+    try {
+      const result = await dashboardJson<{ error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/stripe`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ secretKey, webhookSecret }) });
+      if (!result.ok) { setStripeMessage(result.data.error ?? "Stripe connection failed."); return; }
+      setSecretKey(""); setWebhookSecret("");
+      try { await onReload(); }
+      catch { setStripeMessage("Stripe connected, but the dashboard could not refresh. Refresh the page to confirm it."); return; }
+      setStripeMessage("US Stripe account connected. Credentials are encrypted and cannot be shown again.");
+      trackProductEvent("stripe_connected", { outcome: "success", surface: "dashboard" });
+    } catch {
+      setStripeMessage("Connection was interrupted. Refresh to confirm whether Stripe was connected.");
+    } finally {
+      setSavingStripe(false);
+    }
   }
 
   return <div className="meter-view setup-view">
     <ViewHeading eyebrow="Connection and access" title="Make one trusted event invoice-ready." description="Use the test key first, then repeat with live only after customer identity and pricing are correct." state={`${steps.filter((step) => step.complete).length} of 4 ready`} tone={steps.every((step) => step.complete) ? "good" : "attention"} />
     <div className="setup-checklist">{steps.map((step, index) => <div key={step.label} data-complete={step.complete}><span>{step.complete ? "Done" : String(index + 1).padStart(2, "0")}</span><strong>{step.label}</strong></div>)}</div>
 
-    <section className="setup-section key-management"><header><div><p className="meter-kicker">1 / ingestion access</p><h2>Rotatable write keys</h2></div><EnvironmentToggle value={environment} onChange={(value) => { onEnvironment(value); setNewKey(null); setKeyMessage(""); }} disabled={demo} /></header><div className="key-row"><span><small>Active {environment} key</small><code>{currentKey?.keyPrefix ?? (demo ? `tgw_${environment}_sample...0000` : "No key active")}</code></span><ActionButton tone="secondary" icon={RefreshCw} onClick={() => void rotateKey()}>Rotate key</ActionButton></div>{newKey ? <div className="one-time-secret" role="status"><span>Shown once</span><code>{newKey.key}</code><button className="icon-button" type="button" title="Copy new write key" onClick={() => void copy(newKey.key, "Write key copied")}><Copy size={16} aria-hidden="true" /></button></div> : null}<p className="form-note">{keyMessage || "Test and live keys route events into separate ledgers. Rotating one does not affect the other."}</p></section>
+    <section className="setup-section key-management"><header><div><p className="meter-kicker">1 / ingestion access</p><h2>Rotatable write keys</h2></div><EnvironmentToggle value={environment} onChange={(value) => { onEnvironment(value); setNewKey(null); setKeyMessage(""); }} disabled={demo || rotatingKey} /></header><div className="key-row"><span><small>Active {environment} key</small><code>{currentKey?.keyPrefix ?? (demo ? `tgw_${environment}_sample...0000` : "No key active")}</code></span><ActionButton tone="secondary" icon={RefreshCw} disabled={rotatingKey} onClick={() => void rotateKey()}>{rotatingKey ? "Rotating" : "Rotate key"}</ActionButton></div>{newKey ? <div className="one-time-secret" role="status"><span>Shown once</span><code>{newKey.key}</code><button className="icon-button" type="button" title="Copy new write key" onClick={() => void copy(newKey.key, "Write key copied")}><Copy size={16} aria-hidden="true" /></button></div> : null}<p className="form-note">{keyMessage || "Test and live keys route events into separate ledgers. Rotating one does not affect the other."}</p></section>
 
     <section className="setup-section connection-panel" aria-labelledby="provider-connection-title"><header><div><p className="meter-kicker">2 / provider workflow</p><h2 id="provider-connection-title">Send a non-streaming generation request</h2></div><ActionButton tone="secondary" icon={Copy} onClick={() => void copy(setup.endpoint, "Endpoint copied")}>{copied === "Endpoint copied" ? "Copied" : "Endpoint"}</ActionButton></header><div className="provider-tabs" role="tablist" aria-label="Provider">{PROVIDER_SETUP_OPTIONS.map((option) => <button type="button" role="tab" aria-selected={provider === option.id} key={option.id} onClick={() => setProvider(option.id)}>{option.label}</button>)}</div><div className="base-url"><span>Fixed endpoint</span><code>{setup.endpoint}</code></div><div className="language-tabs" role="tablist" aria-label="Language">{(["javascript", "python", "curl"] as const).map((value) => <button type="button" role="tab" aria-selected={language === value} key={value} onClick={() => setLanguage(value)}>{value === "curl" ? "cURL" : value === "javascript" ? "JavaScript" : "Python"}</button>)}</div><pre><code>{setup.snippets[language]}</code></pre><div className="connection-actions"><ActionButton tone="secondary" icon={Copy} onClick={() => void copy(setup.snippets[language], "Code copied")}>{copied === "Code copied" ? "Copied" : "Copy code"}</ActionButton><span>Set <code>TOLLGATE_WRITE_KEY</code> to the {environment} key. Use one stable retry ID if your app retries the same request.</span></div></section>
 

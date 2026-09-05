@@ -1,5 +1,5 @@
 import { api } from "../../../../../../convex/_generated/api";
-import { dashboardClient, noStoreJson } from "@/lib/dashboard-auth";
+import { dashboardClient, dashboardMutationClient, noStoreJson } from "@/lib/dashboard-auth";
 import { sealSecret } from "@/lib/secret-box";
 import { validateStripeKey } from "@/lib/stripe";
 
@@ -20,7 +20,7 @@ export async function GET(request: Request, context: { params: Promise<{ project
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const master = process.env.STRIPE_KEY_ENCRYPTION_SECRET;
   if (!master || Buffer.byteLength(master) < 32) return noStoreJson({ error: "Stripe secret storage is not configured" }, { status: 503 });
@@ -55,9 +55,9 @@ export async function POST(request: Request, context: { params: Promise<{ projec
   }
 }
 
-export async function DELETE(_request: Request, context: { params: Promise<{ projectId: string }> }) {
+export async function DELETE(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   await convex.mutation(api.stripe.removeConnection, { projectId });
   return noStoreJson({ removed: true });

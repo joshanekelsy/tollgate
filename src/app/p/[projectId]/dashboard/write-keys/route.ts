@@ -1,5 +1,5 @@
 import { api } from "../../../../../../convex/_generated/api";
-import { dashboardClient, noStoreJson } from "@/lib/dashboard-auth";
+import { dashboardClient, dashboardMutationClient, noStoreJson } from "@/lib/dashboard-auth";
 import { generateWriteKey, hashWriteKey, writeKeyPrefix } from "@/lib/write-key";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await context.params;
-  const convex = await dashboardClient(projectId);
+  const convex = await dashboardMutationClient(request, projectId);
   if (!convex) return noStoreJson({ error: "Access denied" }, { status: 403 });
   let environment: "test" | "live" | null = null;
   try {

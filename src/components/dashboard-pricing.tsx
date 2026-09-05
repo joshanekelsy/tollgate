@@ -5,6 +5,7 @@ import { FormEvent, useState } from "react";
 import { ActionButton, EmptyState, EnvironmentToggle, RowStatus, ViewHeading, customerName, money } from "./dashboard-shared";
 import { trackProductEvent } from "@/lib/analytics";
 import type { PriceRule } from "@/lib/billing";
+import { dashboardJson } from "@/lib/dashboard-request";
 import type { CustomerRecord, MeterEnvironment, RateCard, StoredPriceRule } from "@/lib/dashboard-types";
 import type { ProviderId } from "@/lib/types";
 
@@ -46,14 +47,21 @@ function RuleEditor({ projectId, environment, customers, rules, defaultRule, onR
       setMessage("Use non-negative numbers. Included tokens must be a whole number."); return;
     }
     setSaving(true); setMessage("");
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/billing-rule`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ environment, customerId: scope === "default" ? undefined : scope, mode, value: amount, baseAmountUsd, includedTokens }),
-    });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) { setSaving(false); setMessage(result.error ?? "Price rule could not be saved"); return; }
-    await onReload(); setSaving(false); setMessage("Versioned price rule saved. Closed billing runs were not changed.");
-    trackProductEvent("pricing_rule_saved", { environment, mode, outcome: "success", surface: "dashboard" });
+    try {
+      const result = await dashboardJson<{ error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/billing-rule`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ environment, customerId: scope === "default" ? undefined : scope, mode, value: amount, baseAmountUsd, includedTokens }),
+      });
+      if (!result.ok) { setMessage(result.data.error ?? "Price rule could not be saved"); return; }
+      try { await onReload(); }
+      catch { setMessage("Price rule saved, but the dashboard could not refresh. Refresh the page to confirm it."); return; }
+      setMessage("Versioned price rule saved. Closed billing runs were not changed.");
+      trackProductEvent("pricing_rule_saved", { environment, mode, outcome: "success", surface: "dashboard" });
+    } catch {
+      setMessage("Connection was interrupted. Refresh to confirm whether the price rule was saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const preview = mode === "percentage"
@@ -76,26 +84,46 @@ function RateCards({ projectId, environment, rates, onReload, demo }: { projectI
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [message, setMessage] = useState("");
+  const [working, setWorking] = useState<"" | "save" | "remove">("");
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (demo) { setMessage("Sample rate cards are read-only."); return; }
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/rates`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ environment, provider, model, inputUsdPerMillion: Number(input), outputUsdPerMillion: Number(output) }) });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) { setMessage(result.error ?? "Rate card could not be saved"); return; }
-    setModel(""); setInput(""); setOutput(""); setMessage("Rate card saved."); await onReload();
-    trackProductEvent("rate_card_saved", { environment, provider, outcome: "success", surface: "dashboard" });
+    setWorking("save"); setMessage("");
+    try {
+      const result = await dashboardJson<{ error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/rates`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ environment, provider, model, inputUsdPerMillion: Number(input), outputUsdPerMillion: Number(output) }) });
+      if (!result.ok) { setMessage(result.data.error ?? "Rate card could not be saved"); return; }
+      setModel(""); setInput(""); setOutput("");
+      try { await onReload(); }
+      catch { setMessage("Rate card saved, but the dashboard could not refresh. Refresh the page to confirm it."); return; }
+      setMessage("Rate card saved.");
+      trackProductEvent("rate_card_saved", { environment, provider, outcome: "success", surface: "dashboard" });
+    } catch {
+      setMessage("Connection was interrupted. Refresh to confirm whether the rate card was saved.");
+    } finally {
+      setWorking("");
+    }
   }
 
   async function remove(rate: RateCard) {
     if (demo) return;
-    await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/rates`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ environment, provider: rate.provider, model: rate.model }) });
-    await onReload();
+    setWorking("remove"); setMessage("");
+    try {
+      const result = await dashboardJson<{ error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/rates`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ environment, provider: rate.provider, model: rate.model }) });
+      if (!result.ok) { setMessage(result.data.error ?? "Rate card could not be removed"); return; }
+      try { await onReload(); }
+      catch { setMessage("Rate card removed, but the dashboard could not refresh. Refresh the page to confirm it."); return; }
+      setMessage("Rate card removed.");
+    } catch {
+      setMessage("Connection was interrupted. Refresh to confirm whether the rate card was removed.");
+    } finally {
+      setWorking("");
+    }
   }
 
   return <section className="rate-card-panel"><header><div><p className="meter-kicker">Raw model cost</p><h2>Exact model rate cards</h2></div><RowStatus tone={rates.length ? "good" : "attention"}>{rates.length} configured</RowStatus></header><p className="panel-intro">Used only when a provider does not report cost. Provider-reported cost always wins.</p>
-    <form onSubmit={save} className="rate-form"><label><span>Provider</span><select value={provider} onChange={(event) => setProvider(event.target.value as ProviderId)}><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="openrouter">OpenRouter</option></select></label><label><span>Exact model ID</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="claude-sonnet-4-5" required /></label><label><span>Input USD / 1M</span><input type="number" min="0" step="0.000001" value={input} onChange={(event) => setInput(event.target.value)} required /></label><label><span>Output USD / 1M</span><input type="number" min="0" step="0.000001" value={output} onChange={(event) => setOutput(event.target.value)} required /></label><ActionButton icon={Save}>Add rate</ActionButton></form><p className="form-note" role="status">{message}</p>
-    {rates.length ? <div className="data-table-wrap"><table className="dashboard-table"><thead><tr><th>Provider</th><th>Model</th><th>Input / 1M</th><th>Output / 1M</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{rates.map((rate) => <tr key={rate._id}><td>{rate.provider}</td><th>{rate.model}</th><td>{money(rate.inputUsdPerMillion)}</td><td>{money(rate.outputUsdPerMillion)}</td><td><button className="icon-button" type="button" title="Remove rate card" onClick={() => void remove(rate)}><Trash2 size={15} aria-hidden="true" /></button></td></tr>)}</tbody></table></div> : <EmptyState title="No manual rates" body="Add only the exact models whose provider cost is unavailable." />}
+    <form onSubmit={save} className="rate-form"><label><span>Provider</span><select value={provider} onChange={(event) => setProvider(event.target.value as ProviderId)}><option value="openai">OpenAI</option><option value="anthropic">Anthropic</option><option value="gemini">Gemini</option><option value="openrouter">OpenRouter</option></select></label><label><span>Exact model ID</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="claude-sonnet-4-5" required /></label><label><span>Input USD / 1M</span><input type="number" min="0" step="0.000001" value={input} onChange={(event) => setInput(event.target.value)} required /></label><label><span>Output USD / 1M</span><input type="number" min="0" step="0.000001" value={output} onChange={(event) => setOutput(event.target.value)} required /></label><ActionButton icon={Save} disabled={working !== ""}>{working === "save" ? "Saving" : "Add rate"}</ActionButton></form><p className="form-note" role="status">{message}</p>
+    {rates.length ? <div className="data-table-wrap"><table className="dashboard-table"><thead><tr><th>Provider</th><th>Model</th><th>Input / 1M</th><th>Output / 1M</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{rates.map((rate) => <tr key={rate._id}><td>{rate.provider}</td><th>{rate.model}</th><td>{money(rate.inputUsdPerMillion)}</td><td>{money(rate.outputUsdPerMillion)}</td><td><button className="icon-button" type="button" title="Remove rate card" disabled={working !== ""} onClick={() => void remove(rate)}><Trash2 size={15} aria-hidden="true" /></button></td></tr>)}</tbody></table></div> : <EmptyState title="No manual rates" body="Add only the exact models whose provider cost is unavailable." />}
   </section>;
 }
 

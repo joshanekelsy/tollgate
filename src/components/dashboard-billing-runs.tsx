@@ -4,6 +4,7 @@ import { Download, FileLock2, Send } from "lucide-react";
 import { useState } from "react";
 import { ActionButton, EmptyState, RowStatus, ViewHeading, cents } from "./dashboard-shared";
 import { trackProductEvent } from "@/lib/analytics";
+import { dashboardJson } from "@/lib/dashboard-request";
 import type { BillingBlocker, BillingPreview, BillingRun } from "@/lib/dashboard-types";
 
 const blockerText: Record<string, string> = {
@@ -39,20 +40,34 @@ export function DashboardBillingRuns({ projectId, runs, preview, stripeConnected
   async function closeRun() {
     if (demo) { setMessage("Sample billing runs are read-only."); return; }
     setWorking("close"); setMessage("");
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/billing-runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ periodStart: preview.periodStart, periodEnd: preview.periodEnd }) });
-    const result = await response.json() as { blockers?: BillingBlocker[]; error?: string };
-    if (!response.ok) { setWorking(""); setMessage(result.error ?? `${result.blockers?.length ?? 0} blockers still prevent close.`); return; }
-    await onReload(); setWorking(""); setMessage("Billing run closed. Its customer amounts are now fixed.");
-    trackProductEvent("billing_run_closed", { environment: "live", outcome: "success", surface: "dashboard" });
+    try {
+      const result = await dashboardJson<{ blockers?: BillingBlocker[]; error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/billing-runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ periodStart: preview.periodStart, periodEnd: preview.periodEnd }) });
+      if (!result.ok) { setMessage(result.data.error ?? `${result.data.blockers?.length ?? 0} blockers still prevent close.`); return; }
+      try { await onReload(); }
+      catch { setMessage("Billing run closed, but the dashboard could not refresh. Refresh the page to confirm it."); return; }
+      setMessage("Billing run closed. Its customer amounts are now fixed.");
+      trackProductEvent("billing_run_closed", { environment: "live", outcome: "success", surface: "dashboard" });
+    } catch {
+      setMessage("Connection was interrupted. Refresh to confirm whether the billing run was closed.");
+    } finally {
+      setWorking("");
+    }
   }
 
   async function pushStripe(run: BillingRun) {
     if (demo) { setMessage("Sample billing runs are read-only."); return; }
     setWorking("stripe"); setMessage("");
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/billing-runs/${encodeURIComponent(run._id)}/stripe`, { method: "POST" });
-    const result = await response.json() as { error?: string };
-    await onReload(); setWorking(""); setMessage(response.ok ? "Stripe draft creation finished. Review every draft in Stripe before sending." : result.error ?? "Stripe export failed.");
-    if (response.ok) trackProductEvent("stripe_drafts_created", { environment: "live", outcome: "success", surface: "dashboard" });
+    try {
+      const result = await dashboardJson<{ error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/billing-runs/${encodeURIComponent(run._id)}/stripe`, { method: "POST" });
+      try { await onReload(); }
+      catch { setMessage("Stripe export responded, but the dashboard could not refresh. Refresh to see the latest draft state."); return; }
+      setMessage(result.ok ? "Stripe draft creation finished. Review every draft in Stripe before sending." : result.data.error ?? "Stripe export failed.");
+      if (result.ok) trackProductEvent("stripe_drafts_created", { environment: "live", outcome: "success", surface: "dashboard" });
+    } catch {
+      setMessage("Connection was interrupted. Refresh to confirm which Stripe drafts were created.");
+    } finally {
+      setWorking("");
+    }
   }
 
   return <div className="meter-view billing-runs-view">

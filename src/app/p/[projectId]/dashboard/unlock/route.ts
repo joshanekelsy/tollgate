@@ -1,11 +1,13 @@
 import { api } from "../../../../../../convex/_generated/api";
 import { verifyAccessCode } from "@/lib/access-code";
 import { createConvexServiceClient } from "@/lib/convex-service";
+import { isTrustedDashboardMutation, noStoreJson } from "@/lib/dashboard-auth";
 import { createDashboardSession, dashboardSessionCookie } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
+  if (!isTrustedDashboardMutation(request)) return noStoreJson({ error: "Access denied" }, { status: 403 });
   const { projectId } = await context.params;
   const secret = process.env.DASHBOARD_SESSION_SECRET;
   const convex = createConvexServiceClient();

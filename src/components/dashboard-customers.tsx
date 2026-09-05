@@ -4,6 +4,7 @@ import { Plus, Save } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { ActionButton, EmptyState, EnvironmentToggle, Metric, RowStatus, ViewHeading, customerName, money } from "./dashboard-shared";
 import { trackProductEvent } from "@/lib/analytics";
+import { dashboardJson } from "@/lib/dashboard-request";
 import type { CustomerRecord, DashboardCall, InvoiceData, MeterEnvironment } from "@/lib/dashboard-types";
 
 function CustomerEditor({ customer, environment, projectId, onSaved, demo }: {
@@ -25,15 +26,22 @@ function CustomerEditor({ customer, environment, projectId, onSaved, demo }: {
     event.preventDefault();
     if (demo) { setMessage("Sample customers are read-only."); return; }
     setSaving(true); setMessage("");
-    const response = await fetch(`/p/${encodeURIComponent(projectId)}/dashboard/customers`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ environment, customerId, name, billingEmail, stripeCustomerId, status }),
-    });
-    const result = await response.json() as { error?: string };
-    if (!response.ok) { setSaving(false); setMessage(result.error ?? "Customer could not be saved"); return; }
-    await onSaved(); setSaving(false); setMessage("Customer saved.");
-    trackProductEvent("customer_saved", { environment, outcome: "success", surface: "dashboard" });
+    try {
+      const result = await dashboardJson<{ error?: string }>(`/p/${encodeURIComponent(projectId)}/dashboard/customers`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ environment, customerId, name, billingEmail, stripeCustomerId, status }),
+      });
+      if (!result.ok) { setMessage(result.data.error ?? "Customer could not be saved"); return; }
+      try { await onSaved(); }
+      catch { setMessage("Customer saved, but the dashboard could not refresh. Refresh the page to confirm it."); return; }
+      setMessage("Customer saved.");
+      trackProductEvent("customer_saved", { environment, outcome: "success", surface: "dashboard" });
+    } catch {
+      setMessage("Connection was interrupted. Refresh to confirm whether the customer was saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return <form className="customer-editor" onSubmit={save}>
